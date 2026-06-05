@@ -1,0 +1,236 @@
+// ============================================================================
+// SettingsPage — 独立设置页
+// Tab: AI 引擎 | 转换参数 | 关于
+// ============================================================================
+
+import React, { useState } from 'react';
+import { useConfigStore } from '@/store';
+import {
+  AI_PROVIDERS, AI_PROVIDER_LABELS, AI_MODELS,
+  MEDIUM_LABELS, GENRE_OPTIONS, GENRE_LABELS,
+  TONE_OPTIONS, TONE_LABELS,
+  DIALOGUE_DENSITY_OPTIONS, DIALOGUE_DENSITY_LABELS,
+  ACTION_DETAIL_OPTIONS, ACTION_DETAIL_LABELS,
+  STAGE_DIRECTION_OPTIONS, STAGE_DIRECTION_LABELS,
+} from '@/shared/constants';
+import { getApiKey, setApiKey } from '@/shared/ai-config';
+import type { AiConfig, ConversionConfig } from '@/schema/types';
+
+type Tab = 'ai' | 'params' | 'about';
+
+interface Props {
+  onBack: () => void;
+}
+
+export const SettingsPage: React.FC<Props> = ({ onBack }) => {
+  const [tab, setTab] = useState<Tab>('ai');
+
+  const tabs: Array<{ key: Tab; label: string; icon: string }> = [
+    { key: 'ai', label: 'AI 引擎', icon: '🤖' },
+    { key: 'params', label: '转换参数', icon: '🎬' },
+    { key: 'about', label: '关于', icon: 'ℹ️' },
+  ];
+
+  return (
+    <div style={{ maxWidth: 700, margin: '0 auto', padding: 32 }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24 }}>
+        <button onClick={onBack} style={backBtn}>← 返回工作区</button>
+        <h2 style={{ margin: 0, fontSize: 20 }}>⚙️ 设置</h2>
+      </div>
+
+      {/* Tabs */}
+      <div style={{ display: 'flex', gap: 0, marginBottom: 24, borderBottom: '2px solid #e0e0e0' }}>
+        {tabs.map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            style={{
+              padding: '10px 20px',
+              border: 'none',
+              borderBottom: tab === t.key ? '2px solid #1976d2' : '2px solid transparent',
+              background: 'transparent',
+              cursor: 'pointer',
+              fontWeight: tab === t.key ? 600 : 400,
+              color: tab === t.key ? '#1976d2' : '#666',
+              fontSize: 14,
+              marginBottom: -2,
+            }}
+          >
+            {t.icon} {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Tab Content */}
+      <div style={{ background: '#fff', border: '1px solid #e8e8e8', borderRadius: 8, padding: 24 }}>
+        {tab === 'ai' && <AiEngineTab />}
+        {tab === 'params' && <ParamsTab />}
+        {tab === 'about' && <AboutTab />}
+      </div>
+    </div>
+  );
+};
+
+// ===================== AI 引擎 Tab =====================
+
+const AiEngineTab: React.FC = () => {
+  const { aiConfig, setAiConfig } = useConfigStore();
+  const [apiKeys, setApiKeys] = useState<Record<string, string>>(() => {
+    const keys: Record<string, string> = {};
+    for (const p of AI_PROVIDERS) keys[p] = getApiKey(p) || '';
+    return keys;
+  });
+  const [saved, setSaved] = useState(false);
+
+  const handleProvider = (p: string) => {
+    setAiConfig({ ...aiConfig, ai_provider: p as AiConfig['ai_provider'], ai_model: AI_MODELS[p]?.[0] ?? '' });
+  };
+
+  const handleKey = (p: string, k: string) => {
+    setApiKeys((s) => ({ ...s, [p]: k }));
+    setApiKey(p, k);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 1500);
+  };
+
+  return (
+    <div>
+      {saved && <div style={{ padding: '6px 12px', background: '#e8f5e9', color: '#2e7d32', borderRadius: 4, marginBottom: 12, fontSize: 13 }}>✅ API Key 已保存</div>}
+
+      {/* SSL警告 */}
+      <div style={{ padding: '8px 12px', background: '#fff3e0', border: '1px solid #ffe0b2', borderRadius: 6, marginBottom: 16, fontSize: 12, color: '#e65100' }}>
+        ⚠️ API Key 仅保存在浏览器本地存储 (localStorage)，不会上传到任何服务器。请确保在可信设备上使用。
+      </div>
+
+      {/* Provider + Model + Key */}
+      <div style={{ display: 'grid', gridTemplateColumns: '140px 1fr', gap: '12px 16px', alignItems: 'center' }}>
+        <Label>AI 提供商</Label>
+        <select value={aiConfig.ai_provider} onChange={(e) => handleProvider(e.target.value)} style={selectStyle}>
+          {AI_PROVIDERS.map((p) => <option key={p} value={p}>{AI_PROVIDER_LABELS[p] ?? p}</option>)}
+        </select>
+
+        <Label>模型</Label>
+        {aiConfig.ai_provider === 'custom' ? (
+          <input value={aiConfig.ai_model} onChange={(e) => setAiConfig({ ...aiConfig, ai_model: e.target.value })}
+            style={inputStyle} placeholder="输入模型 ID (如 gpt-4o-mini)" />
+        ) : (
+          <select value={aiConfig.ai_model} onChange={(e) => setAiConfig({ ...aiConfig, ai_model: e.target.value })} style={selectStyle}>
+            {(AI_MODELS[aiConfig.ai_provider] ?? []).map((m) => <option key={m} value={m}>{m}</option>)}
+          </select>
+        )}
+
+        <Label>API Key</Label>
+        <input type="password" value={apiKeys[aiConfig.ai_provider] ?? ''}
+          onChange={(e) => handleKey(aiConfig.ai_provider, e.target.value)}
+          style={inputStyle} placeholder={`${AI_PROVIDER_LABELS[aiConfig.ai_provider]} 的 API Key (sk-...)`} />
+
+        {aiConfig.ai_provider === 'custom' && (
+          <>
+            <Label>自定义端点</Label>
+            <input value={aiConfig.ai_api_base_url ?? ''} style={inputStyle}
+              onChange={(e) => setAiConfig({ ...aiConfig, ai_api_base_url: e.target.value })}
+              placeholder="https://your-api.com/v1/chat/completions" />
+          </>
+        )}
+      </div>
+
+      {/* 所有 Provider 的 Key（展开） */}
+      <details style={{ marginTop: 20 }}>
+        <summary style={{ cursor: 'pointer', fontSize: 13, color: '#888' }}>管理所有提供商的 API Key</summary>
+        <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {AI_PROVIDERS.filter((p) => p !== aiConfig.ai_provider).map((p) => (
+            <div key={p} style={{ display: 'flex', gap: 12 }}>
+              <span style={{ width: 120, fontSize: 12, color: '#666', flexShrink: 0, paddingTop: 6 }}>{AI_PROVIDER_LABELS[p] ?? p}</span>
+              <input type="password" value={apiKeys[p] ?? ''} onChange={(e) => handleKey(p, e.target.value)}
+                style={inputStyle} placeholder="API Key (sk-...)" />
+            </div>
+          ))}
+        </div>
+      </details>
+    </div>
+  );
+};
+
+// ===================== 转换参数 Tab =====================
+
+const ParamsTab: React.FC = () => {
+  const { conversionConfig, setConversionConfig } = useConfigStore();
+  const cfg = conversionConfig;
+
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '140px 1fr', gap: '12px 16px', alignItems: 'center' }}>
+      <Label>目标媒介</Label>
+      <select value={cfg.target_medium} onChange={(e) => setConversionConfig({ ...cfg, target_medium: e.target.value as ConversionConfig['target_medium'] })} style={selectStyle}>
+        {Object.entries(MEDIUM_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+      </select>
+
+      <Label>基调</Label>
+      <select value={cfg.tone} onChange={(e) => setConversionConfig({ ...cfg, tone: e.target.value as ConversionConfig['tone'] })} style={selectStyle}>
+        {TONE_OPTIONS.map((t) => <option key={t} value={t}>{TONE_LABELS[t] ?? t}</option>)}
+      </select>
+
+      <Label>对白密度</Label>
+      <select value={cfg.dialogue_density} onChange={(e) => setConversionConfig({ ...cfg, dialogue_density: e.target.value as ConversionConfig['dialogue_density'] })} style={selectStyle}>
+        {DIALOGUE_DENSITY_OPTIONS.map((d) => <option key={d} value={d}>{DIALOGUE_DENSITY_LABELS[d] ?? d}</option>)}
+      </select>
+
+      <Label>动作详细度</Label>
+      <select value={cfg.action_detail_level} onChange={(e) => setConversionConfig({ ...cfg, action_detail_level: e.target.value as ConversionConfig['action_detail_level'] })} style={selectStyle}>
+        {ACTION_DETAIL_OPTIONS.map((d) => <option key={d} value={d}>{ACTION_DETAIL_LABELS[d] ?? d}</option>)}
+      </select>
+
+      <Label>舞台指示风格</Label>
+      <select value={cfg.stage_direction_style} onChange={(e) => setConversionConfig({ ...cfg, stage_direction_style: e.target.value as ConversionConfig['stage_direction_style'] })} style={selectStyle}>
+        {STAGE_DIRECTION_OPTIONS.map((d) => <option key={d} value={d}>{STAGE_DIRECTION_LABELS[d] ?? d}</option>)}
+      </select>
+
+      <Label>类型标签</Label>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+        {GENRE_OPTIONS.map((g) => {
+          const active = cfg.genre.includes(g);
+          return (
+            <button key={g} onClick={() => {
+              const next = active ? cfg.genre.filter((x) => x !== g) : [...cfg.genre, g];
+              setConversionConfig({ ...cfg, genre: next });
+            }} style={{
+              border: 'none', borderRadius: 12, padding: '3px 10px', fontSize: 11, cursor: 'pointer',
+              background: active ? '#1976d2' : '#e8e8e8', color: active ? '#fff' : '#555',
+              fontWeight: active ? 600 : 400,
+            }}>
+              {GENRE_LABELS[g] ?? g}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+// ===================== 关于 Tab =====================
+
+const AboutTab: React.FC = () => (
+  <div style={{ fontSize: 13, lineHeight: 1.8, color: '#555' }}>
+    <h3 style={{ margin: '0 0 12px', color: '#333' }}>AI 辅助剧本创作工具</h3>
+    <p><strong>版本:</strong> v0.2.0 (MVP)</p>
+    <p><strong>技术栈:</strong> React 18 + TypeScript + Zustand + Vite 6 + js-yaml + ajv</p>
+    <p><strong>数据标准:</strong> NovelAnalysis v1.1.0 / AdaptationPlan v1.1.0 / Screenplay v1.1.0</p>
+    <p><strong>支持 AI:</strong> DeepSeek (V4 Pro/Flash) / OpenAI / Anthropic / 智谱 / 月之暗面 / 自定义端点</p>
+    <hr style={{ border: 'none', borderTop: '1px solid #eee', margin: '16px 0' }} />
+    <p style={{ color: '#888' }}>API Key 存储于浏览器 localStorage，不会上传到任何第三方服务器。所有 AI 调用直接从浏览器发起。</p>
+  </div>
+);
+
+// ====== Helpers ======
+
+const Label: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <span style={{ fontSize: 13, fontWeight: 600, color: '#555' }}>{children}</span>
+);
+
+const selectStyle: React.CSSProperties = { width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #d0d0d0', fontSize: 13, background: '#fff' };
+
+const inputStyle: React.CSSProperties = { width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #d0d0d0', fontSize: 13, boxSizing: 'border-box' };
+
+const backBtn: React.CSSProperties = {
+  padding: '6px 14px', border: '1px solid #d0d0d0', borderRadius: 6, background: '#fff', cursor: 'pointer', fontSize: 13,
+};
