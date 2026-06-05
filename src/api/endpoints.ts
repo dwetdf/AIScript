@@ -130,18 +130,21 @@ export function exportProjectBundle(projectId: string): string {
 
 /**
  * 从备份 JSON 恢复项目
+ * @param json - 项目 bundle JSON 字符串
+ * @param targetProjectId - 可选，强制写入指定项目 ID（忽略 bundle 中的 projectId）
  */
-export function importProjectBundle(json: string): ProjectMeta | null {
+export function importProjectBundle(json: string, targetProjectId?: string): ProjectMeta | null {
   try {
     const bundle = JSON.parse(json);
-    if (!bundle.projectId) return null;
+    const projectId = targetProjectId || bundle.projectId;
+    if (!projectId) return null;
 
-    if (bundle.meta) localStorage.setItem(`${STORAGE_PREFIX}meta_${bundle.projectId}`, JSON.stringify(bundle.meta));
-    if (bundle.analysis) saveAnalysis(bundle.projectId, bundle.analysis);
-    if (bundle.plan) savePlan(bundle.projectId, bundle.plan);
-    if (bundle.screenplay) saveScreenplay(bundle.projectId, bundle.screenplay);
+    if (bundle.meta) localStorage.setItem(`${STORAGE_PREFIX}meta_${projectId}`, JSON.stringify({ ...bundle.meta, id: projectId }));
+    if (bundle.analysis) saveAnalysis(projectId, bundle.analysis);
+    if (bundle.plan) savePlan(projectId, bundle.plan);
+    if (bundle.screenplay) saveScreenplay(projectId, bundle.screenplay);
 
-    return bundle.meta as ProjectMeta;
+    return { ...bundle.meta, id: projectId } as ProjectMeta;
   } catch {
     return null;
   }
