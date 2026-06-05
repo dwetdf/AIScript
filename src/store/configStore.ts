@@ -5,7 +5,7 @@
 
 import { create } from 'zustand';
 import type { AiConfig, ConversionConfig } from '../schema/types';
-import { DEFAULT_AI_CONFIG, DEFAULT_CONVERSION_CONFIG } from '../shared/constants';
+import { DEFAULT_AI_CONFIG, DEFAULT_CONVERSION_CONFIG, DEFAULT_BEAT_EXPANSION_CONCURRENCY } from '../shared/constants';
 import { loadAiConfig, saveAiConfig } from '../shared/ai-config';
 
 interface ConfigTemplate {
@@ -24,6 +24,10 @@ interface ConfigStore {
   // 转换参数配置
   conversionConfig: ConversionConfig;
   setConversionConfig: (config: Partial<ConversionConfig>) => void;
+
+  // Beat 展开并发数
+  concurrency: number;
+  setConcurrency: (n: number) => void;
 
   // 配置模板 (F56)
   templates: ConfigTemplate[];
@@ -50,6 +54,9 @@ export const useConfigStore = create<ConfigStore>((set, get) => {
     setConversionConfig: (patch) => {
       set((s) => ({ conversionConfig: { ...s.conversionConfig, ...patch } }));
     },
+
+    concurrency: DEFAULT_BEAT_EXPANSION_CONCURRENCY,
+    setConcurrency: (n) => set({ concurrency: n }),
 
     templates: [],
     saveTemplate: (name) => {

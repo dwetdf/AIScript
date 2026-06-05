@@ -146,6 +146,14 @@ export const STAGE_DIRECTION_LABELS: Record<string, string> = {
   descriptive: '描述性',
 };
 
+// ============================== Beat 展开并发 ==============================
+
+/** Beat 展开时 AI API 默认并发数 */
+export const DEFAULT_BEAT_EXPANSION_CONCURRENCY = 3;
+
+/** Beat 展开最大并发数（防止触发 API 限流） */
+export const MAX_BEAT_EXPANSION_CONCURRENCY = 10;
+
 // ============================== Beat 类型 ==============================
 
 export const BEAT_TYPES = [

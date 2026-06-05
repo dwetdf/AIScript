@@ -211,19 +211,51 @@ export async function chatCompletionJson<T>(
 }
 
 /**
- * 批量调用 AI（并行，限并发数）
+ * 批量调用 AI 并返回解析后的 JSON 对象（并行，限并发数）
+ * 每个任务独立 try/catch，单个失败不阻塞其他任务。
+ *
+ * @param tasks 任务列表，每个任务包含 messages + 可选的 config/options
+ * @param concurrency 并发数，默认 3
+ * @param onItemComplete 每个任务完成时的回调（无论成功/失败），用于实时 UI 更新
+ * @returns 结果数组（与 tasks 同顺序），null 表示该任务失败
  */
-export async function batchChatCompletion(
-  messageBatches: Array<{ messages: ChatMessage[]; config?: AiConfig }>,
-  concurrency = 3
-): Promise<string[]> {
-  const results: string[] = [];
-  for (let i = 0; i < messageBatches.length; i += concurrency) {
-    const batch = messageBatches.slice(i, i + concurrency);
+export async function batchChatCompletionJson<T>(
+  tasks: Array<{
+    messages: ChatMessage[];
+    config?: AiConfig;
+    options?: { temperature?: number; maxTokens?: number };
+  }>,
+  concurrency = 3,
+  onItemComplete?: (index: number, result: T | null, error?: string) => void
+): Promise<(T | null)[]> {
+  const results: (T | null)[] = new Array(tasks.length);
+
+  for (let i = 0; i < tasks.length; i += concurrency) {
+    const batch = tasks.slice(i, i + concurrency);
     const batchResults = await Promise.all(
-      batch.map((b) => chatCompletion(b.messages, b.config).catch((e) => `[ERROR] ${e.message}`))
+      batch.map(async (task, batchOffset) => {
+        const globalIndex = i + batchOffset;
+        try {
+          const parsed = await chatCompletionJson<T>(
+            task.messages,
+            task.config,
+            task.options
+          );
+          results[globalIndex] = parsed;
+          onItemComplete?.(globalIndex, parsed);
+          return { index: globalIndex, ok: true as const };
+        } catch (e) {
+          const errMsg = (e as Error).message;
+          results[globalIndex] = null;
+          onItemComplete?.(globalIndex, null, errMsg);
+          console.error(`[batchChatCompletionJson] 任务 ${globalIndex} 失败:`, errMsg);
+          return { index: globalIndex, ok: false as const };
+        }
+      })
     );
-    results.push(...batchResults);
+    // 批量结果仅用于校验——实际数据已写入 results[globalIndex]
+    void batchResults;
   }
+
   return results;
 }
