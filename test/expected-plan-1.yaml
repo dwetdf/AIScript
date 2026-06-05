@@ -1,0 +1,485 @@
+# 阶段 2 产物示例 — AdaptationPlan
+#
+# 基于 NovelAnalysis，AI 生成的改编规划和分场景大纲
+# 保存位置: localStorage['aiscript_project_plan_default_project']
+# 文件格式: JSON
+
+schema_version: "1.1.0"
+
+source_analysis_ref:
+  chapters_covered:
+    start_chapter: 1
+    end_chapter: 4
+
+# ============================================================
+# F19-F24 改编策略
+# ============================================================
+adaptation_strategy:
+  target_medium: "film"
+
+  # F19 基调映射
+  tone_adaptation:
+    source_tone: "沉静、内敛、苦涩中带温暖、平民视角"
+    target_tone: "serious"
+    notes: "保留原著的沉静和温暖。不使用好莱坞式煽情，情感通过细节和留白传达。节奏沉稳但不过于缓慢，高潮处（棋场大战）要有史诗感但不浮夸。"
+
+  # F20 结构改编决策
+  structural_decisions:
+    - decision: "四章压缩为三幕电影结构"
+      rationale: "第一章（火车）+ 第二章前半（农场）合并为第一幕（建立）；第二章后半（下棋）+ 第三章（比赛前）为第二幕（对抗）；第四章（车轮大战）为第三幕（高潮+尾声）。"
+      impact: "high"
+      affected_chapters:
+        - 1
+        - 2
+        - 3
+        - 4
+    - decision: "删减作者简介和ePub元数据段落"
+      rationale: "非小说正文内容"
+      impact: "low"
+    - decision: "王一生口述的捡烂纸老头故事，改为闪回段落呈现"
+      rationale: "影视化需要视觉呈现。在火车上王一生说到棋道时，切入垃圾站下盲棋的闪回。这是人物成长的关键，不能只靠台词交代。"
+      impact: "high"
+      affected_characters:
+        - "wang_yi_sheng"
+      affected_chapters:
+        - 1
+    - decision: "母亲故事保留为口述+闪回"
+      rationale: "母亲的无字棋是王一生情感锚点。火车上王一生讲述时，闪回家中场景。最后比赛结束后他看到棋子嚎啕——需要前面的铺垫才能成立。"
+      impact: "high"
+      affected_characters:
+        - "wang_yi_sheng"
+      affected_chapters:
+        - 1
+        - 4
+
+  # F21 人物改编决策
+  character_adaptations:
+    - character_id: "wang_yi_sheng"
+      action: "keep"
+      notes: "保持全部戏份。他的吃相细节（饭粒抹进嘴里、筷子吮净）需要镜头特写。象棋对局需要设计有视觉冲击力的呈现方式（棋子特写、棋盘俯拍、王一生面部大特写）。"
+    - character_id: "wo"
+      action: "keep"
+      notes: "叙述者视角可以用少量VO（画外音）辅助，但主要通过反应镜头和对白表现。他是观众代入的入口。"
+    - character_id: "ni_bin"
+      action: "keep"
+      notes: "与王一生对比的关键人物。他的体面（整齐衣服、乌木棋）与王一生的不修边幅形成视觉对比。"
+    - character_id: "lao_tou"
+      action: "expand"
+      notes: "捡烂纸老头虽然是间接出场（只在王一生口述中），但他的棋道哲学是人物弧线的关键。建议设计一场完整的垃圾站下棋闪回场景。"
+    - character_id: "museum_guan_jun"
+      action: "keep"
+      notes: "地区冠军老者。出场虽短（仅结局），但主动求和说的那段话是高潮后的点睛之笔。需要选一个有分量的演员。"
+
+  # F22 节奏规划
+  pacing_strategy:
+    overall_pacing: "varied"
+    high_tension_ratio: 0.3
+    breathing_room: "高张力场景（棋场大战）之前需要充分的铺垫。第一幕结尾（捡烂纸老头闪回）是一次小型情绪高点。第二幕末尾（脚卵求书记、王一生拒绝参赛）是价值观冲突高点。第三幕开头即进入持续紧张状态直至结束。"
+
+  # F23 外化策略
+  externalization_strategy: >
+    1. 内心活动外化：王一生的内心通过吃相、搓手、紧手脸的微表情传达。
+    老头的棋理通过垃圾站对弈的动作和对白传达，不使用VO。
+    2. '我'的感受通过反应镜头（看王一生下棋时的表情变化）传达。
+    3. 象棋的'势'——抽象概念通过棋子在棋盘上的移动、特写、音效来视觉化。
+    4. 人群的情绪变化通过群演反应和声效来传达（从安静到骚动到惊叹）。
+
+  # F24 压缩规则
+  compression_rules:
+    - rule: "环境描写压缩：保留空间感（火车拥挤、农场简陋、棋场空旷）和氛围词，删除色彩修饰和冗余细节"
+      applies_to: "environment"
+      priority: "must"
+    - rule: "对话节奏保留：王一生的对白特征（直接、粗口、语速快）必须保留，叙述性段落可大幅压缩"
+      applies_to: "dialogue"
+      priority: "must"
+    - rule: "吃的细节：保留三处关键吃相——火车上吃饭、农场蛇肉宴、比赛后吃饭。其余吃相关的描述可适当压缩。"
+      applies_to: "action"
+      priority: "should"
+
+# ============================================================
+# F25 幕结构规划
+# ============================================================
+episode_plan:
+  total_acts: 3
+  acts:
+    - act_number: 1
+      act_title: "第一幕 相逢"
+      act_type: "setup"
+      synopsis: "火车上'我'遇见棋呆子王一生。两人关于吃和象棋的交流建立了人物关系。通过王一生的口述，引入捡烂纸老头和棋道。结尾：火车到站，两人分手。"
+      estimated_scene_count: 6
+      estimated_duration_minutes: 25
+      key_moments:
+        - moment: "王一生问'下棋吗'"
+          from_chapter: 1
+          dramatic_function: "exposition"
+        - moment: "吃和馋的哲学对白"
+          from_chapter: 1
+          dramatic_function: "character_moment"
+        - moment: "捡烂纸老头传授棋道（闪回）"
+          from_chapter: 1
+          dramatic_function: "plot_point"
+      source_chapters:
+        - 1
+
+    - act_number: 2
+      act_title: "第二幕 棋逢对手"
+      act_type: "confrontation"
+      synopsis: "半年后王一生徒步来访。蛇肉宴后与脚卵下棋，王一生赢。脚卵说'天下是你的'。王一生讲述母亲和无字棋的故事。"
+      estimated_scene_count: 5
+      estimated_duration_minutes: 30
+      key_moments:
+        - moment: "王一生与脚卵对弈"
+          from_chapter: 2
+          dramatic_function: "midpoint"
+        - moment: "王一生讲述母亲故事"
+          from_chapter: 2
+          dramatic_function: "character_moment"
+        - moment: "脚卵用明代乌木棋请书记帮忙 → 王一生拒绝参赛"
+          from_chapter: 3
+          dramatic_function: "plot_point"
+      source_chapters:
+        - 2
+        - 3
+
+    - act_number: 3
+      act_title: "第三幕 九连环"
+      act_type: "resolution"
+      synopsis: "地区象棋比赛。王一生以无资格身份，同时挑战九人（包括冠亚季军）下盲棋。千人围观，万人空巷。数小时激战后，冠军老者求和，王一生答应。赛后看到无字棋子，嚎啕喊母亲。"
+      estimated_scene_count: 8
+      estimated_duration_minutes: 35
+      key_moments:
+        - moment: "九人盲棋车轮大战"
+          from_chapter: 4
+          dramatic_function: "climax"
+        - moment: "冠军老者求和"
+          from_chapter: 4
+          dramatic_function: "resolution"
+        - moment: "王一生看到无字棋喊母亲"
+          from_chapter: 4
+          dramatic_function: "character_moment"
+      source_chapters:
+        - 4
+
+# ============================================================
+# F26-F28 分场景大纲 + source_context + beat_plan
+# ============================================================
+scene_plan:
+  # ------ 第一幕 ------
+  - scene_global_number: 1
+    act_number: 1
+    scene_number: 1
+    location:
+      name: "火车站台/火车车厢"
+      interior_exterior: "INT_EXT"
+      set_description: "1970年代火车站，红布标语，拥挤的知青和送别的人群，喇叭里放着语录歌"
+    time_of_day: "日"
+    synopsis: "'我'独自登上知青专列，在车厢里发现一个精瘦的学生（王一生）。王一生问'下棋吗'，'我'拒绝。同学经过认出王一生是'棋呆子'。"
+    dramatic_function: "exposition"
+    tension_level: 2
+    characters_present:
+      - "wang_yi_sheng"
+      - "wo"
+    source_chapter_ref: "第一章"
+
+    # F27 原文上下文 — 防漂移第二层：AI基于这些原文写作beat
+    source_context:
+      summary: "'我'在拥挤的车厢里安顿下来，发现斜对面坐着一个精瘦的学生，手拢在袖子里。学生注意到'我'的手指细长，眼中放光问'下棋吗'。'我'否认会下棋，但他说'这么细长的手指，就是捏棋子儿的'，强拉着要下一盘。'我'说了只会马走日象走田，他还是横摆了棋盘。一个同学经过认出王一生，大声叫'棋呆子'，讲述了他的事迹——到处找人下棋，赢了各路高手。"
+      key_dialogues:
+        - speaker: "王一生"
+          text: "下棋吗？"
+          context_note: "王一生第一句台词。他看到'我'的手指细长，眼中放光。这句话是他的开场白，透露出他对棋的痴迷——在动荡迷茫的知青专列上，他关心的是有没有人能下棋。"
+        - speaker: "王一生"
+          text: "这么细长的手指头，就是捏棋子儿的，你肯定会。来一盘吧，我带来家伙呢。"
+          context_note: "说着便从窗钩上取下书包掏棋子。他随身带棋——这是他最重要的东西。"
+        - speaker: "同学"
+          text: "棋呆子，你怎么在这儿？你妹妹刚才把你找苦了。"
+          context_note: "同学意外发现王一生在这节车厢，大声叫出他的外号，引出王一生的背景故事。"
+      key_actions:
+        - description: "王一生说着就从窗钩上取下书包，掏出棋盒，把塑料棋盘横摆在茶几上——因为棋盘太大放不下，他就横着摆。"
+        - description: "王一生码棋速度极快，'啪'的一声跳好马，催促'我'走棋。"
+      key_descriptions:
+        - "车站是乱得不能再乱，成千上万的人都在说话。临时挂起来的大红布标语，字纸折得有些坏。"
+        - "车厢里靠站台一面的窗子挤满知青，都探出身去说笑哭泣。另一面冬日的阳光斜射进来，冷清清地照在北边儿众多的屁股上。"
+        - "王一生：精瘦的学生，手拢在袖管儿里，隔窗望着车站南边儿的空车皮。"
+      adaptation_notes: "这是开场场景，需要建立两个人物和王一生的性格核心。王一生的第一句台词'下棋吗'应该是一个安静的瞬间——周围嘈杂，独他问出这句话。'我'的孤独感（没人来送）与王一生的孤独感（妹妹找他都顾不上）形成对比。棋盘横摆这个动作是人物性格的缩影——不拘形式，棋就是棋。"
+
+    # F28 Beat规划
+    beat_plan:
+      estimated_beat_count: 18
+      key_beats:
+        - order: 1
+          beat_type: "action"
+          description: "车站外景，拥挤的送别人群，红布标语"
+          from_source: true
+        - order: 2
+          beat_type: "action"
+          description: "'我'独自进入车厢，观察环境"
+          from_source: true
+        - order: 3
+          beat_type: "action"
+          description: "发现精瘦的王一生独坐角落"
+          from_source: true
+        - order: 4
+          beat_type: "dialogue"
+          description: "王一生问'下棋吗'——第一句台词"
+          character_id: "wang_yi_sheng"
+          from_source: true
+        - order: 5
+          beat_type: "dialogue"
+          description: "'我'否认会下棋，王一生不信"
+          character_id: "wo"
+          from_source: true
+        - order: 7
+          beat_type: "action"
+          description: "王一生掏出棋子，横摆棋盘"
+          from_source: true
+        - order: 10
+          beat_type: "dialogue"
+          description: "同学认出棋呆子，大声叫出外号"
+          from_source: true
+        - order: 14
+          beat_type: "action"
+          description: "车开了，哭声四起，王一生催促继续下棋"
+          from_source: true
+      notes: "开场场景不要急。给够空间让两个人物自然建立。王一生的独坐、掏棋、横摆棋盘、催促下棋——四个动作就建立了他的人物。'我'从抵触到好奇的转变要自然。"
+
+  # ------ 第二幕场景（节选）------
+  - scene_global_number: 4
+    act_number: 2
+    scene_number: 1
+    location:
+      name: "农场宿舍"
+      interior_exterior: "INT"
+      set_description: "简陋知青宿舍，草顶土墙，几张床铺，油灯，绳上晾着衣服"
+    time_of_day: "傍晚"
+    synopsis: "王一生徒步百里来访。'我'从伙房领出油和茄子，准备做蛇肉宴招待。其他知青打到两条蛇。脚卵（倪斌）被请来与王一生下棋。蛇肉宴上，脚卵炫耀家世和燕窝，王一生专注吃。饭后下棋，王一生赢，脚卵认输。"
+    dramatic_function: "midpoint"
+    tension_level: 3
+    characters_present:
+      - "wang_yi_sheng"
+      - "wo"
+      - "ni_bin"
+    source_chapter_ref: "第二章"
+
+    source_context:
+      summary: "王一生经过半个月的跋涉（搭一段车走一段路）找到'我'所在的农场。'我'从伙房顺出这个月的五钱油、三根长茄子，准备招待他。知青们在山上打到两条蛇，做了蛇肉宴。脚卵被请来与王一生下棋。蛇肉宴上，脚卵大谈燕窝和海味，王一生专注吃蛇肉（没吃过螃蟹，不知道是不是像蟹肉）。饭后两人下棋，王一生连赢数局。脚卵说'天下是你的'，问他的棋跟谁学的，王一生答'跟天下人'。"
+      key_dialogues:
+        - speaker: "王一生"
+          text: "搭一段儿车，走一段儿路，出来半个月了。"
+          context_note: "轻描淡写地说自己跋涉半月来找人下棋。不到百里走了半个月——因为他一路找人下棋。"
+        - speaker: "王一生"
+          text: "我没吃过螃蟹，不知道。"
+          context_note: "脚卵问蛇肉像不像蟹肉，王一生如实回答。反差：脚卵的优越感在王一生的坦率面前变得尴尬。"
+        - speaker: "倪斌"
+          text: "天下是你的。你的棋是跟谁学的？"
+          context_note: "脚卵认输后问。王一生答'跟天下人'——四个字表达了他在街头和江湖中练棋的经历。"
+      key_actions:
+        - description: "王一生脱了衣服洗，呼噜呼噜地洗完后将脏衣服一件一件搓，拧干晾在绳上。肋骨一根根动着。"
+        - description: "蛇肉亮晶晶盘在碗里，粉粉地冒蒸气。'我'撕蛇肉蘸料，大家乒乒乓乓盛饭。王一生专注吃，不答脚卵关于螃蟹的问题。"
+        - description: "下棋：王一生安静，只暗暗捻手指。三十几步后说'重摆吧'——赢了第一盘。第二盘走到十多步，脚卵说'再来一盘'。"
+      key_descriptions:
+        - "农场在大山林里，活计是砍树、烧山、挖坑、再栽树。交通不便，常买不到煤油点灯。每月五钱油。"
+        - "几只猪在场地上跑来跑去，个个儿瘦得赛狗。"
+        - "油灯下四壁都是人影子。王一生抱了双膝，锁骨后陷下两个深窝，盯着油灯。"
+      adaptation_notes: "这是全片最温暖的一场戏——清苦中的盛宴。蛇肉宴是王一生和脚卵性格对比的舞台：王一生专注吃（物质生存）、脚卵炫耀燕窝（社交资本）。下棋场景要营造静谧感——周围安静下来，只剩油灯和棋子声。"
+
+    beat_plan:
+      estimated_beat_count: 25
+      key_beats:
+        - order: 1
+          beat_type: "action"
+          description: "王一生远远出现在山路上"
+          from_source: true
+        - order: 5
+          beat_type: "dialogue"
+          description: "王一生说搭车走路半个月——轻描淡写的跋涉"
+          character_id: "wang_yi_sheng"
+          from_source: true
+        - order: 8
+          beat_type: "action"
+          description: "蛇肉宴准备过程——剥蛇皮、蒸蛇肉、剁调料"
+          from_source: true
+        - order: 12
+          beat_type: "action"
+          description: "脚卵进来看棋具——明代乌木棋"
+          from_source: true
+        - order: 15
+          beat_type: "dialogue"
+          description: "脚卵讲燕窝、海味、家里的讲究——与王一生的沉默对比"
+          character_id: "ni_bin"
+          from_source: true
+        - order: 18
+          beat_type: "action"
+          description: "下棋开始——两人对着油灯，围观者静默"
+          from_source: true
+        - order: 22
+          beat_type: "dialogue"
+          description: "脚卵说'天下是你的'"
+          character_id: "ni_bin"
+          from_source: true
+        - order: 24
+          beat_type: "dialogue"
+          description: "王一生答'跟天下人'"
+          character_id: "wang_yi_sheng"
+          from_source: true
+      notes: "这场戏的核心是三人关系的建立。蛇肉宴是'破冰'——在物质极度匮乏中分享食物是最深的友谊。下棋的静谧与之前吃蛇肉的热闹形成节奏对比。"
+
+  # ====== 第三幕场景（高潮）======
+  - scene_global_number: 10
+    act_number: 3
+    scene_number: 4
+    location:
+      name: "地区棋场"
+      interior_exterior: "INT_EXT"
+      set_description: "空荡的大屋子，中间一把靠背椅，四壁挂八张大白纸画的棋盘，纸在风中哗哗响。屋外上千人围观，尘土飞扬。"
+    time_of_day: "日（持续到天黑）"
+    synopsis: "王一生同时与九人下盲棋——包括本届冠亚季军。冠军在家命人骑马传棋。上千人围观，万人空巷。数小时后仅剩与冠军的一盘。冠军老者亲自到场，见王一生已力竭，主动求和。王一生答应和棋。赛后看到'我'攥着的无字棋子，嚎啕喊母亲。"
+    dramatic_function: "climax"
+    tension_level: 5
+    characters_present:
+      - "wang_yi_sheng"
+      - "wo"
+      - "ni_bin"
+    source_chapter_ref: "第四章"
+
+    source_context:
+      summary: "王一生孤身坐在棋场中央的靠背椅上——九局盲棋连环进行。上千人挤在棋场内外。八张大白纸上画了棋盘格，棋子用硬纸剪成，背后粘绳挂在钉子上。自愿服务的人传话报棋步。数小时后，九人中七人已败，仅剩与冠军的一盘。冠军老者被搀着从人群中走出。他看了残局，走到王一生面前说——你的棋汇道禅于一炉，先声有势，后发制人。愿平手言和。王一生吃力地说'和了吧'——已经脱力站不起来。'我'伸手在书包里摸到那个旧蓝斜纹布小口袋，取出无字棋子——在太阳底下半透明像一只眼睛。王一生看到棋子，猛地嚎啕大哭，喊'妈，儿今天——妈——'。"
+      key_dialogues:
+        - speaker: "王一生"
+          text: "怕江湖的不怕朝廷的。参加過比賽的人的棋路我都看了，就不知道其他六個人會不會冒出冤家。"
+          context_note: "赛前对'我'说。他认为比赛选手棋路可预测（'朝廷'），但江湖高手（未参赛者）才是真正挑战。"
+        - speaker: "冠军老者"
+          text: "后生，你小小年纪，就有这般棋道。汇道禅于一炉，神机妙算，先声有势，后发制人，遣龙治水，气贯阴阳，古今儒将，不过如此。愿平手言和，给老朽一点面子？"
+          context_note: "老者这番话是对王一生棋道的最高赞誉。从冠军口中说出——等于承认败了。"
+        - speaker: "王一生"
+          text: "和了吧。"
+          context_note: "王一生力竭后艰难吐出的两个字。不是谦让，是真的拼到极限了。"
+      key_actions:
+        - description: "王一生坐在靠背椅上，双手扶膝，眼平视着极远的远处。土没拍干净，东一块西一块。喉结许久才动一下。"
+        - description: "'我'递水给他。他报棋步后把碗端到嘴边，刚咽一口'咕'的一声，声音大得可怕，眼里有了泪花。"
+        - description: "冠军老者被搀出人群——精光头皮，慢慢走出来，嘴嚼动着，上上下下看着八张残局。"
+        - description: "王一生哭过，滞气调理过来，有了精神，就一起吃饭。画家喝得大醉。"
+      key_descriptions:
+        - "人是越来越多。数千人闹闹嚷嚷，街上像半空响着闷雷。"
+        - "風吹得八張大紙嘩嘩地響，棋子兒蕩來蕩去。太陽斜斜地照在一切上，燒得耀眼。"
+        - "王一生孤身坐在大屋子中央，鐵鑄一個細樹椿。高高的一盞電燈暗照在他臉上，眼睛深陷進去，黑黑的似俯視大千世界。"
+      adaptation_notes: "全片高潮。需要营造三种氛围：(1)入定的静谧——王一生进入'棋境'，周围只听到传棋声和风声；(2)群众的热烈——外面上千人的骚动、传播、惊叹；(3)收尾的情绪释放——老者求和时的庄严，王一生看到棋子后的嚎啕大哭。三者在几分钟内完成切换。"
+
+    beat_plan:
+      estimated_beat_count: 40
+      key_beats:
+        - order: 1
+          beat_type: "action"
+          description: "人群涌向棋场——千人涌动、尘土飞扬的震撼场面"
+          from_source: true
+        - order: 3
+          beat_type: "action"
+          description: "志愿人员挂八张白纸棋盘，贴棋子"
+          from_source: true
+        - order: 5
+          beat_type: "action"
+          description: "王一生坐在棋场中央靠背椅上——一个人面对空荡荡的大屋子"
+          from_source: true
+        - order: 8
+          beat_type: "dialogue"
+          description: "王一生说'怕江湖的不怕朝廷的'——开战前"
+          character_id: "wang_yi_sheng"
+          from_source: true
+        - order: 10
+          beat_type: "montage_start"
+          description: "盲棋大战开始——交叉剪辑：王一生报棋步 / 外面传棋声 / 大纸上棋子移动 / 人群安静"
+          from_source: false
+        - order: 20
+          beat_type: "montage_end"
+          description: "蒙太奇结束"
+          from_source: false
+        - order: 22
+          beat_type: "action"
+          description: "太阳落下去，七人已被淘汰。仅剩冠军的一盘。"
+          from_source: true
+        - order: 25
+          beat_type: "action"
+          description: "'我'悄悄送水给王一生——他报完棋步才喝，喝水声'咕'的大得可怕"
+          from_source: true
+        - order: 28
+          beat_type: "action"
+          description: "人群闪开——冠军老者被搀着走出来，精光头皮，慢慢看了八张残局"
+          from_source: true
+        - order: 30
+          beat_type: "dialogue"
+          description: "老者赞誉王一生棋道，请求平手言和"
+          from_source: true
+        - order: 32
+          beat_type: "dialogue"
+          description: "王一生艰难说'和了吧'——已经站不起来，腿还在坐着的姿势"
+          character_id: "wang_yi_sheng"
+          from_source: true
+        - order: 35
+          beat_type: "flashback_start"
+          description: "闪回：母亲的手在折书页 / 用牙刷把磨棋子"
+          flashback_label: "母亲"
+          from_source: false
+        - order: 37
+          beat_type: "flashback_end"
+          description: "回到现实：'我'张开手，掌心里是那个无字棋子"
+          from_source: false
+        - order: 38
+          beat_type: "dialogue"
+          description: "王一生嚎啕大喊——'妈，儿今天——妈——'"
+          character_id: "wang_yi_sheng"
+          from_source: true
+        - order: 40
+          beat_type: "action"
+          description: "火把通明，人群散去。'我'搀王一生回文化馆。夜黑黑的，王一生睡死过去。'我'耳边似乎还人声嚷动。"
+          from_source: true
+      notes: "这是全片最长也是最核心的一场戏。40个beat看起来多，但盲棋大战本身就是时间跨度很长的场景。建议：(1)用蒙太奇压缩中间时间；(2)关键节点（七个对手退出、只剩下冠军）用特写突出；(3)老者的出场要慢——人群缓缓闪开，老者慢慢走出来，与之前的紧张形成节奏反差；(4)王一生的嚎啕大哭是积蓄四章的情感释放——前面的克制（不哭、不说、只下棋）都是为了这一刻。"
+
+# ============================================================
+# F29 人物表初稿
+# ============================================================
+characters_draft:
+  - character_id: "wang_yi_sheng"
+    name: "王一生"
+    role_type: "protagonist"
+    description: "知识青年，精瘦，痴迷下象棋。母亲用牙刷把磨了一副无字棋留给他。"
+    arc: "从痴迷求胜到悟道不争，最终在九人车轮大战中完成超越和情感释放"
+    voice_notes: "语速快，直来直去，常用粗口。下棋时专注而凶悍，说吃时事无巨细"
+
+  - character_id: "wo"
+    name: "我"
+    role_type: "supporting"
+    description: "叙述者，知识青年，父母双亡。喜欢读书，对王一生从好奇到敬佩。"
+    arc: "从陌生人到最忠实的守护者"
+    voice_notes: "理性分析中带有情感，偶尔自嘲。叙事VO应维持安静、克制。"
+
+  - character_id: "ni_bin"
+    name: "倪斌"
+    aliases: ["脚卵"]
+    role_type: "supporting"
+    description: "高个子知青，家传棋道，好面子。有明代乌木棋。"
+    arc: "从有优越感到被王一生折服，用家传棋帮王一生（然后被拒绝）"
+    voice_notes: "文雅客气，常有'蛮好蛮好'的口头禅"
+
+# ============================================================
+# F30 地点表初稿
+# ============================================================
+locations_draft:
+  - location_id: "train_carriage"
+    name: "火车车厢"
+    location_type: "interior"
+    description: "1970年代绿皮火车知青专列车厢，拥挤嘈杂"
+
+  - location_id: "farm_dormitory"
+    name: "农场宿舍"
+    location_type: "interior"
+    description: "简陋知青宿舍，草顶土墙，油灯，绳上晾衣服"
+
+  - location_id: "chess_venue"
+    name: "地区棋场"
+    location_type: "mixed"
+    description: "空荡的大屋子，中间一把椅子。外面可容纳上千人的空地。"
+
+  - location_id: "garbage_station"
+    name: "垃圾站"
+    location_type: "exterior"
+    description: "夜晚路灯下的垃圾站。捡烂纸老头推筐出没的地方。"
