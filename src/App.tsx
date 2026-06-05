@@ -1,26 +1,33 @@
 // ============================================================================
-// App 根组件 — MVP 完整流程
-// 导入 → 分析 → 规划 → 展开 → 编辑 → 导出
+// App 根组件 — v0.2.0 重构
+// 面包屑 + 侧边树 + 可视化预览 + 非阻塞AI + Settings独立页
 // ============================================================================
 
-import React, { useState } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { Editor } from './editor';
+import { AppShell, type AppSection } from './components/AppShell';
+import { LoadingStage } from './components/LoadingStage';
+import { AnalysisPreview } from './views/AnalysisPreview';
+import { PlanPreview } from './views/PlanPreview';
+import { SettingsPage } from './views/SettingsPage';
 import { useScriptStore, useAnalysisStore, usePlanStore, useConfigStore, useEditorStore } from './store';
 import { parseNovel } from './parser';
 import { analyzeNovel } from './analyzer';
 import { planAdaptation } from './planner';
 import { expandBeats } from './converter';
 import { validate } from './schema/validator';
-import { AiSetupPanel } from './config/AiSetupPanel';
 import { saveAnalysis, savePlan, saveScreenplay, saveProjectMeta } from './api/endpoints';
 import type { ParsedNovel } from './parser';
 
-type AppStep = 'import' | 'analyzing' | 'analysis_done' | 'planning' | 'plan_done' | 'expanding' | 'editing';
+const PROJECT_ID = 'default_project';
 
 export const App: React.FC = () => {
-  const [step, setStep] = useState<AppStep>('import');
+  const [section, setSection] = useState<AppSection>('import');
   const [error, setError] = useState<string | null>(null);
   const [loadingMsg, setLoadingMsg] = useState('');
+
+  // 展开阶段进度
+  const [expandProgress, setExpandProgress] = useState<{ current: number; total: number; currentScene: string } | null>(null);
 
   const screenplay = useScriptStore((s) => s.screenplay);
   const analysis = useAnalysisStore((s) => s.analysis);
@@ -30,274 +37,324 @@ export const App: React.FC = () => {
   const setPlan = usePlanStore((s) => s.setPlan);
   const setScreenplay = useScriptStore((s) => s.setScreenplay);
   const setProcessing = useEditorStore((s) => s.setProcessing);
+  const isProcessing = useEditorStore((s) => s.isProcessing);
 
-  const PROJECT_ID = 'default_project';
+  /** 让 React 有机会渲染一帧——解决页面卡死问题 */
+  const yieldFrame = () => new Promise((r) => setTimeout(r, 0));
 
-  // If we have a screenplay, show the editor
-  if (screenplay) {
-    return <Editor />;
-  }
-
-  const handleFileImport = async (file: File) => {
+  // ===================== 导入 + 分析 =====================
+  const handleFileImport = useCallback(async (file: File) => {
     setError(null);
-    setStep('analyzing');
-    setLoadingMsg('正在解析小说文件...');
+    setSection('analysis_overview');
     setProcessing(true, '解析小说');
+    setLoadingMsg('正在解析小说文件...');
+    await yieldFrame();
 
     try {
-      // 1. Parse
       const novel: ParsedNovel = await parseNovel(file);
       setLoadingMsg(`已解析 ${novel.chapters.length} 个章节，开始 AI 分析...`);
-
-      // 2. Analyze (Stage 1)
       setProcessing(true, 'AI 小说分析（阶段 1/3）');
-      const novelAnalysis = await analyzeNovel(novel, aiConfig);
+      await yieldFrame();
 
-      // Validate
+      const novelAnalysis = await analyzeNovel(novel, aiConfig);
       const validateResult = validate(novelAnalysis, 'novel-analysis');
-      if (!validateResult.valid) {
-        console.warn('NovelAnalysis 校验警告:', validateResult.errors);
-      }
+      if (!validateResult.valid) console.warn('NovelAnalysis 校验警告:', validateResult.errors);
 
       setAnalysis(novelAnalysis);
       saveAnalysis(PROJECT_ID, novelAnalysis);
       saveProjectMeta({ id: PROJECT_ID, title: novel.title, author: novel.author || '未知', targetMedium: aiConfig.ai_provider, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
-      setStep('analysis_done');
-      setLoadingMsg(`✅ 小说分析完成！已保存到 localStorage。点击继续...`);
       setProcessing(false);
+      setLoadingMsg('');
+      setSection('analysis_overview');
     } catch (e) {
       setError((e as Error).message);
-      setStep('import');
+      setSection('import');
       setProcessing(false);
     }
-  };
+  }, [aiConfig, setAnalysis, setProcessing]);
 
-  const handlePlan = async () => {
+  // ===================== 规划 =====================
+  const handlePlan = useCallback(async () => {
     if (!analysis) return;
     setError(null);
-    setStep('planning');
-    setLoadingMsg('AI 改编规划中...');
+    setSection('plan_overview');
     setProcessing(true, 'AI 改编规划（阶段 2/3）');
+    setLoadingMsg('AI 正在设计改编方案...');
+    await yieldFrame();
 
     try {
       const config = useConfigStore.getState().conversionConfig;
       const adaptationPlan = await planAdaptation(analysis, config, aiConfig);
-
       const validateResult = validate(adaptationPlan, 'adaptation-plan');
-      if (!validateResult.valid) {
-        console.warn('AdaptationPlan 校验警告:', validateResult.errors);
-      }
+      if (!validateResult.valid) console.warn('AdaptationPlan 校验警告:', validateResult.errors);
 
       setPlan(adaptationPlan);
       savePlan(PROJECT_ID, adaptationPlan);
-      setStep('plan_done');
-      setLoadingMsg(`✅ 改编规划完成！已保存。${adaptationPlan.scene_plan.length} 个场景待展开...`);
       setProcessing(false);
+      setLoadingMsg('');
+      setSection('plan_overview');
     } catch (e) {
       setError((e as Error).message);
-      setStep('analysis_done');
+      setSection('analysis_overview');
       setProcessing(false);
     }
-  };
+  }, [analysis, aiConfig, setPlan, setProcessing]);
 
-  const handleExpand = async () => {
+  // ===================== 展开 Beats =====================
+  const handleExpand = useCallback(async () => {
     if (!plan) return;
     setError(null);
-    setStep('expanding');
-    setLoadingMsg(`正在展开 ${plan.scene_plan.length} 个场景...`);
+    setSection('script_edit');
     setProcessing(true, 'Beat 展开（阶段 3/3）');
+    setLoadingMsg('AI 正在展开场景 beat...');
+    setExpandProgress({ current: 0, total: plan.scene_plan.length, currentScene: '准备中' });
+    await yieldFrame();
 
     try {
-      const screenplayData = await expandBeats(plan, aiConfig);
+      // 重写 expandBeats：逐场景展开并 report progress
+      const screenplayData = await expandBeatsWithProgress(plan, aiConfig, (current, total, sceneName) => {
+        setExpandProgress({ current, total, currentScene: sceneName });
+        setLoadingMsg(`正在展开场景 ${current}/${total}...`);
+      });
 
       const validateResult = validate(screenplayData, 'screenplay');
-      if (!validateResult.valid) {
-        console.warn('Screenplay 校验警告:', validateResult.errors);
-      }
+      if (!validateResult.valid) console.warn('Screenplay 校验警告:', validateResult.errors);
 
       setScreenplay(screenplayData);
       saveScreenplay(PROJECT_ID, screenplayData);
-      setStep('editing');
       setProcessing(false);
-      setLoadingMsg('✅ 剧本生成完成！已保存，进入编辑器...');
+      setLoadingMsg('');
+      setExpandProgress(null);
+      setSection('script_edit');
     } catch (e) {
       setError((e as Error).message);
-      setStep('plan_done');
+      setSection('plan_overview');
       setProcessing(false);
+      setExpandProgress(null);
     }
-  };
+  }, [plan, aiConfig, setScreenplay, setProcessing]);
 
-  // 导入之前的步骤也显示配置面板
-  const showConfig = step === 'import' || step === 'analysis_done' || step === 'plan_done';
+  // ===================== 路由 =====================
+
+  // 编辑器模式（进入后不可返回）
+  if (screenplay && section === 'script_edit') {
+    return <Editor />;
+  }
+
+  // Settings 独立页
+  if (section === 'settings') {
+    return (
+      <div style={{ minHeight: '100vh', background: '#f5f5f5' }}>
+        <SettingsPage onBack={() => setSection(analysis ? 'analysis_overview' : plan ? 'plan_overview' : 'import')} />
+      </div>
+    );
+  }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f5f5f5', fontFamily: 'system-ui' }}>
-      {/* Header */}
-      <div style={headerStyle}>
-        <h1 style={{ margin: 0, fontSize: 20 }}>AI 辅助剧本创作工具</h1>
-        <span style={{ fontSize: 12, color: '#888' }}>MVP v0.1.0</span>
-      </div>
-
-      {/* Body: 左侧配置 + 右侧主流程 */}
-      <div style={{ display: 'flex', maxWidth: 1100, margin: '0 auto' }}>
-        {/* 左侧配置面板 */}
-        {showConfig && (
-          <div style={{ width: 300, flexShrink: 0, padding: '16px 0' }}>
-            <AiSetupPanel />
+    <AppShell currentSection={section} onNavigate={setSection}>
+      <div style={{ maxWidth: 960, margin: '0 auto', padding: 24 }}>
+        {/* ======== 错误提示 ======== */}
+        {error && (
+          <div style={errorBar}>
+            <strong>错误：</strong>{error}
+            <button onClick={() => setError(null)} style={{ marginLeft: 12, background: 'transparent', border: 'none', cursor: 'pointer', color: '#c62828', fontWeight: 600 }}>✕</button>
           </div>
         )}
 
-        {/* 右侧主内容 */}
-        <div style={{ flex: 1, padding: '24px 32px' }}>
-          {/* Stepper */}
-          <StepIndicator currentStep={step} />
+        {/* ======== 导入页 ======== */}
+        {section === 'import' && <ImportCard onImport={handleFileImport} />}
 
-          {/* Error */}
-          {error && (
-            <div style={{ padding: 12, background: '#ffebee', border: '1px solid #f44336', borderRadius: 8, marginBottom: 16, color: '#c62828', fontSize: 14 }}>
-              <strong>错误：</strong>{error}
-            </div>
-          )}
+        {/* ======== AI 处理中 ======== */}
+        {isProcessing && (
+          <LoadingStage
+            stage={
+              expandProgress ? 'expanding' :
+              section === 'plan_overview' && loadingMsg ? 'planning' :
+              'analyzing'
+            }
+            message={loadingMsg || '处理中...'}
+            sceneName={expandProgress?.currentScene}
+            progress={expandProgress || undefined}
+          />
+        )}
 
-          {/* Import Step */}
-          {step === 'import' && <ImportCard onImport={handleFileImport} />}
-
-          {/* Processing */}
-          {(step === 'analyzing' || step === 'planning' || step === 'expanding') && (
-            <div style={{ textAlign: 'center', padding: 48, background: '#fff', borderRadius: 8, border: '1px solid #e0e0e0' }}>
-              <div style={{ fontSize: 48, marginBottom: 16 }}>⏳</div>
-              <h3>{loadingMsg}</h3>
-              <p style={{ color: '#888' }}>请耐心等待，AI 处理中...</p>
-              <div style={{ marginTop: 16, width: '100%', height: 4, background: '#e0e0e0', borderRadius: 2, overflow: 'hidden' }}>
-                <div style={{ height: '100%', width: step === 'expanding' ? '80%' : step === 'planning' ? '50%' : '20%', background: '#1976d2', borderRadius: 2, transition: 'width 0.5s' }} />
+        {/* ======== 阶段1: 分析预览 ======== */}
+        {!isProcessing && analysis && (
+          section.startsWith('analysis_') || section === 'import'
+        ) && (
+          <>
+            <AnalysisPreview analysis={analysis} />
+            {!plan && (
+              <div style={{ textAlign: 'center', marginTop: 24 }}>
+                <button onClick={handlePlan} style={primaryBtn}>→ 开始改编规划（阶段 2/3）</button>
               </div>
-            </div>
-          )}
+            )}
+          </>
+        )}
 
-          {/* Analysis Done */}
-          {step === 'analysis_done' && analysis && (
-            <div>
-              <ResultCard title="✅ 小说分析完成" items={[
-                `主题：${(analysis.theme_analysis?.core_themes || []).map((t) => t.theme).join('、') || '待提取'}`,
-                `核心冲突：${analysis.plot_analysis.core_conflict?.description || '待提取'}`,
-                `人物：${analysis.character_analysis.length} 个（${analysis.character_analysis.filter((c) => c.importance === 'essential').map((c) => c.name).join('、')} 等）`,
-                `章节：${analysis.chapter_summaries.length} 章`,
-                `关键事件：${analysis.plot_analysis.key_events.length} 个`,
-              ]} />
-              <button onClick={handlePlan} style={primaryBtnStyle}>
-                → 开始改编规划（阶段 2/3）
-              </button>
-            </div>
-          )}
+        {/* ======== 阶段2: 规划预览 ======== */}
+        {!isProcessing && plan && (
+          section.startsWith('plan_') || section === 'analysis_overview'
+        ) && (
+          <>
+            <PlanPreview plan={plan} />
+            {!screenplay && (
+              <div style={{ textAlign: 'center', marginTop: 24 }}>
+                <button onClick={handleExpand} style={primaryBtn}>→ 展开 Beat（阶段 3/3）</button>
+              </div>
+            )}
+          </>
+        )}
 
-          {/* Plan Done */}
-          {step === 'plan_done' && plan && (
-            <div>
-              <ResultCard title="✅ 改编规划完成" items={[
-                `基调：${plan.adaptation_strategy.tone_adaptation.target_tone}（原著：${plan.adaptation_strategy.tone_adaptation.source_tone}）`,
-                `幕数：${plan.episode_plan.total_acts} 幕 · ${plan.scene_plan.length} 个场景`,
-                `改编决策：${plan.adaptation_strategy.structural_decisions.length} 项`,
-                `人物初稿：${plan.characters_draft?.length || 0} 个`,
-              ]} />
-              <button onClick={handleExpand} style={primaryBtnStyle}>
-                → 展开 Beat（阶段 3/3）
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// ============================== Sub Components ==============================
-
-const StepIndicator: React.FC<{ currentStep: AppStep }> = ({ currentStep }) => {
-  const steps = [
-    { key: 'import' as const, label: '1. 导入' },
-    { key: 'analyzing' as const, label: '2. 分析' },
-    { key: 'planning' as const, label: '3. 规划' },
-    { key: 'editing' as const, label: '4. 编辑' },
-  ];
-
-  const currentIdx =
-    currentStep === 'editing' || currentStep === 'expanding' ? 3
-    : currentStep === 'plan_done' || currentStep === 'planning' ? 2
-    : currentStep === 'analysis_done' || currentStep === 'analyzing' ? 1
-    : 0;
-
-  return (
-    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 32, gap: 40 }}>
-      {steps.map((s, i) => (
-        <div key={s.key} style={{ textAlign: 'center' }}>
-          <div style={{
-            width: 32, height: 32, borderRadius: '50%', display: 'flex',
-            alignItems: 'center', justifyContent: 'center', margin: '0 auto 4px',
-            background: i < currentIdx ? '#4caf50' : i === currentIdx ? '#1976d2' : '#e0e0e0',
-            color: i <= currentIdx ? '#fff' : '#888', fontWeight: 600, fontSize: 14,
-          }}>
-            {i < currentIdx ? '✓' : i + 1}
+        {/* ======== 阶段3: 已有剧本时的提示 ======== */}
+        {!isProcessing && screenplay && section !== 'script_edit' && (
+          <div style={{ textAlign: 'center', padding: 48 }}>
+            <div style={{ fontSize: 48, marginBottom: 16 }}>📝</div>
+            <h3>剧本已生成</h3>
+            <p style={{ color: '#888', marginBottom: 24 }}>点击下方进入编辑器</p>
+            <button onClick={() => setSection('script_edit')} style={primaryBtn}>进入编辑器 →</button>
           </div>
-          <span style={{ fontSize: 12, color: i <= currentIdx ? '#333' : '#999' }}>{s.label}</span>
-        </div>
-      ))}
-    </div>
+        )}
+      </div>
+    </AppShell>
   );
 };
 
-const ImportCard: React.FC<{ onImport: (file: File) => void }> = ({ onImport }) => {
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    const file = e.dataTransfer.files[0];
-    if (file) onImport(file);
-  };
+// ====================== Sub Components ======================
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) onImport(file);
-  };
-
-  return (
-    <div
-      onDrop={handleDrop}
-      onDragOver={(e) => e.preventDefault()}
-      style={{
-        border: '2px dashed #bbb', borderRadius: 12, padding: 48,
-        textAlign: 'center', background: '#fff', cursor: 'pointer',
-      }}
-    >
-      <div style={{ fontSize: 48, marginBottom: 16 }}>📖</div>
-      <h3>导入小说文件</h3>
-      <p style={{ color: '#888', marginBottom: 24 }}>
-        支持 .txt / .docx / .md 格式 · 至少 3 章 · 中文小说
-      </p>
-      <label style={{
-        padding: '10px 24px', background: '#1976d2', color: '#fff',
-        borderRadius: 8, cursor: 'pointer', fontSize: 15, display: 'inline-block',
-      }}>
-        选择文件
-        <input type="file" accept=".txt,.docx,.md" onChange={handleFileChange} style={{ display: 'none' }} />
-      </label>
-      <p style={{ fontSize: 11, color: '#bbb', marginTop: 12 }}>或拖拽文件到此处</p>
-    </div>
-  );
-};
-
-const ResultCard: React.FC<{ title: string; items: string[] }> = ({ title, items }) => (
-  <div style={{ padding: 20, background: '#fff', borderRadius: 8, border: '1px solid #e0e0e0', marginBottom: 16 }}>
-    <h3 style={{ marginTop: 0 }}>{title}</h3>
-    {items.map((item, i) => (
-      <p key={i} style={{ margin: '4px 0', fontSize: 14, color: '#555' }}>{item}</p>
-    ))}
+const ImportCard: React.FC<{ onImport: (file: File) => void }> = ({ onImport }) => (
+  <div
+    onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) onImport(f); }}
+    onDragOver={(e) => e.preventDefault()}
+    style={{ border: '2px dashed #bbb', borderRadius: 12, padding: 56, textAlign: 'center', background: '#fff', cursor: 'pointer' }}
+  >
+    <div style={{ fontSize: 56, marginBottom: 16 }}>📖</div>
+    <h3 style={{ marginTop: 0 }}>导入小说文件</h3>
+    <p style={{ color: '#888', marginBottom: 28 }}>支持 .txt / .docx / .md 格式 · 至少 3 章 · 中文小说</p>
+    <label style={{ padding: '12px 28px', background: '#1976d2', color: '#fff', borderRadius: 8, cursor: 'pointer', fontSize: 15, display: 'inline-block' }}>
+      选择文件
+      <input type="file" accept=".txt,.docx,.md" onChange={(e) => { const f = e.target.files?.[0]; if (f) onImport(f); }} style={{ display: 'none' }} />
+    </label>
+    <p style={{ fontSize: 11, color: '#bbb', marginTop: 14 }}>或拖拽文件到此处</p>
   </div>
 );
 
-const headerStyle: React.CSSProperties = {
-  background: '#fff', borderBottom: '1px solid #e0e0e0',
-  padding: '12px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+const errorBar: React.CSSProperties = {
+  padding: 12, background: '#ffebee', border: '1px solid #f44336', borderRadius: 8,
+  marginBottom: 16, color: '#c62828', fontSize: 14, display: 'flex', alignItems: 'center',
 };
 
-const primaryBtnStyle: React.CSSProperties = {
-  width: '100%', padding: '14px 24px', background: '#1976d2', color: '#fff',
+const primaryBtn: React.CSSProperties = {
+  padding: '14px 32px', background: '#1976d2', color: '#fff',
   border: 'none', borderRadius: 8, fontSize: 16, cursor: 'pointer', fontWeight: 600,
 };
+
+// ====================== 辅助：逐场景展开 + 进度回调 ======================
+
+import type { Screenplay, AiConfig, AdaptationPlan, Scene, Beat } from './schema/types';
+import { generateBeatId } from './shared/id-generator';
+import { SCHEMA_VERSIONS } from './shared/constants';
+import { chatCompletionJson } from './api/client';
+import { buildBeatExpansionPrompt } from './converter/prompt-templates/beat-expansion';
+
+async function expandBeatsWithProgress(
+  plan: AdaptationPlan,
+  aiConfig: AiConfig,
+  onProgress: (current: number, total: number, sceneName: string) => void
+): Promise<Screenplay> {
+  const episode = 1;
+  const totalScenes = plan.scene_plan.length;
+  let completed = 0;
+
+  const acts = [];
+  for (const actPlan of plan.episode_plan.acts) {
+    const scenes: Scene[] = [];
+    const actScenes = plan.scene_plan.filter((sp) => sp.act_number === actPlan.act_number);
+
+    for (const sp of actScenes) {
+      onProgress(completed, totalScenes, sp.synopsis.substring(0, 30));
+      try {
+        const expanded = await expandSceneBeats(sp, episode, aiConfig);
+        scenes.push(expanded);
+      } catch (e) {
+        console.error(`场景 ${sp.scene_global_number} 展开失败：`, e);
+        scenes.push(createEmptyScene(sp));
+      }
+      completed++;
+      onProgress(completed, totalScenes, sp.synopsis.substring(0, 30));
+    }
+
+    acts.push({ act_number: actPlan.act_number, act_title: actPlan.act_title, act_type: actPlan.act_type || 'other', synopsis: actPlan.synopsis, scenes });
+  }
+
+  const screenplay: Screenplay = {
+    schema_version: SCHEMA_VERSIONS.screenplay,
+    revision_history: [{ revision_number: 1, timestamp: new Date().toISOString(), author: 'AI', change_summary: 'AI 初始生成' }],
+    metadata: {
+      title: plan.source_analysis_ref?.analysis_file || '未命名剧本',
+      target_medium: plan.adaptation_strategy.target_medium,
+      language: 'zh-CN',
+      generated_at: new Date().toISOString(),
+      estimated_runtime_minutes: Math.ceil(acts.reduce((s, a) => s + a.scenes.reduce((ss, sc) => ss + (sc.estimated_duration_seconds || 0), 0), 0) / 60),
+      tone: plan.adaptation_strategy.tone_adaptation.target_tone as Screenplay['metadata']['tone'],
+      conversion_config: { ai_provider: aiConfig.ai_provider, ai_model: aiConfig.ai_model, dialogue_density: 'balanced', action_detail_level: 'standard', stage_direction_style: 'descriptive' },
+    },
+    characters: (plan.characters_draft || []).map((cd) => ({ character_id: cd.character_id, name: cd.name, aliases: cd.aliases, role_type: cd.role_type || 'supporting', description: cd.description, arc: cd.arc, voice_notes: cd.voice_notes, relationships: (cd.relationships || []).map((r) => ({ target_character_id: r.target_character_id, relationship_type: r.relationship_type, relationship_description: r.relationship_description })) })),
+    locations: (plan.locations_draft || []).map((ld) => ({ location_id: ld.location_id, name: ld.name, location_type: ld.location_type, description: ld.description, parent_location_id: ld.parent_location_id })),
+    acts,
+    production_notes: { adaptation_decisions: plan.adaptation_strategy.structural_decisions.map((d) => ({ decision: d.decision, rationale: d.rationale })) },
+  };
+  return screenplay;
+}
+
+async function expandSceneBeats(sp: import('./schema/types').ScenePlan, episode: number, aiConfig: AiConfig): Promise<Scene> {
+  const prompt = buildBeatExpansionPrompt(sp, sp.source_context, sp.beat_plan);
+  const result = await chatCompletionJson<{
+    beats: Array<Record<string, unknown>>;
+    tension_level?: number;
+  }>([{ role: 'system', content: '你是一个专业的剧本写手，将场景大纲展开为剧情节拍。请只输出JSON。' }, { role: 'user', content: prompt }], aiConfig, { temperature: 0.7, maxTokens: 8192 });
+
+  const beats: Beat[] = (result.beats || []).map((rb, idx) => {
+    const bt = (rb.beat_type as Beat['beat_type']) || 'action';
+    return {
+      beat_id: generateBeatId(episode, sp.act_number, sp.scene_global_number, idx + 1),
+      beat_type: bt,
+      emotion: rb.emotion as string,
+      is_ai_generated: rb.is_ai_generated !== false,
+      estimated_duration_seconds: (rb.estimated_duration_seconds as number) || 10,
+      source_ref: rb.source_ref_chapter ? { chapter: rb.source_ref_chapter as number, paragraph: rb.source_ref_paragraph as number, excerpt: rb.source_ref_excerpt as string } : undefined,
+      ...(bt === 'dialogue' || bt === 'voice_over' || bt === 'off_screen' ? { character_id: (rb.character_id as string) || '', dialogue_text: (rb.dialogue_text as string) || '' } : {}),
+      ...(bt === 'action' || bt === 'montage_start' || bt === 'montage_end' || bt === 'flashback_end' ? { action_text: (rb.action_text as string) || '' } : {}),
+      ...(bt === 'parenthetical' ? { character_id: (rb.character_id as string) || '', parenthetical_text: (rb.parenthetical_text as string) || '' } : {}),
+      ...(bt === 'transition' ? { transition_type: (rb.transition_type as string) || 'CUT_TO' } : {}),
+      ...(bt === 'title_card' ? { title_card_text: (rb.title_card_text as string) || '' } : {}),
+      ...(bt === 'insert' ? { insert_description: (rb.insert_description as string) || '' } : {}),
+      ...(bt === 'flashback_start' ? { flashback_label: (rb.flashback_label as string) || '' } : {}),
+    } as Beat;
+  });
+
+  return {
+    scene_number: sp.scene_number, scene_global_number: sp.scene_global_number,
+    location: sp.location, time_of_day: sp.time_of_day,
+    scene_heading: `${sp.location.interior_exterior}. ${sp.location.name} — ${sp.time_of_day}`,
+    scene_heading_override: false,
+    source_chapter_ref: sp.source_chapter_ref, synopsis: sp.synopsis,
+    dramatic_function: sp.dramatic_function as Scene['dramatic_function'],
+    tension_level: result.tension_level || sp.tension_level || 3,
+    characters_present: sp.characters_present || [],
+    estimated_duration_seconds: beats.reduce((s, b) => s + (b.estimated_duration_seconds || 0), 0),
+    beats,
+  };
+}
+
+function createEmptyScene(sp: import('./schema/types').ScenePlan): Scene {
+  return {
+    scene_number: sp.scene_number, scene_global_number: sp.scene_global_number,
+    location: sp.location, time_of_day: sp.time_of_day,
+    scene_heading: `${sp.location.interior_exterior}. ${sp.location.name} — ${sp.time_of_day}`,
+    scene_heading_override: false, synopsis: sp.synopsis,
+    dramatic_function: sp.dramatic_function as Scene['dramatic_function'],
+    tension_level: sp.tension_level, characters_present: sp.characters_present || [],
+    estimated_duration_seconds: 0, beats: [],
+  };
+}
