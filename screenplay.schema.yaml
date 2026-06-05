@@ -1,0 +1,1105 @@
+# =============================================================================
+# Screenplay YAML Schema  v1.1.0
+# AI 小说转剧本工具 — 结构化剧本数据标准
+# =============================================================================
+# 遵循 JSON Schema Draft-07 语义，使用 YAML 语法表达
+# 验证工具推荐：pykwalify / jsonschema（配合 yaml.safe_load）
+#
+# v1.1.0 变更：
+#   - beat_id 增加集号前缀 E{episode}A{act}S{scene_global}B{beat}
+#   - 新增 flashback_start / flashback_end 节拍类型
+#   - 新增 beat.estimated_duration_seconds
+#   - 新增 beat.source_ref 结构化原文引用
+#   - 新增 scene.scene_heading_override 标记
+#   - 新增 scene.continuity_notes（接景连续性）
+#   - 新增 revision_history 顶层字段
+#   - first_appearance 中 scene_number → scene_global_number
+#   - scenes[] 和 beats[] 的 minItems 改为 0 以支持中间状态
+#   - 新增 ai_config（默认 deepseek）和 conversion_config 的 AI 引擎配置
+# =============================================================================
+
+$schema: "http://json-schema.org/draft-07/schema#"
+$id: "https://your-domain.com/schemas/screenplay/v1.1.0"
+title: Screenplay
+description: >
+  AI 小说转剧本工具输出的标准化剧本数据结构。
+  覆盖从元信息到幕、场景、剧情节拍的完整层级，
+  兼容电影、剧集（单集/多集）、舞台剧三种媒介格式。
+type: object
+required:
+  - schema_version
+  - metadata
+  - characters
+  - acts
+
+# =============================================================================
+# 顶层属性
+# =============================================================================
+properties:
+
+  # ---------------------------------------------------------------------------
+  # schema_version — 版本锁定
+  # ---------------------------------------------------------------------------
+  schema_version:
+    type: string
+    description: Schema 版本号，采用 semver 格式，用于兼容性校验
+    pattern: '^\d+\.\d+\.\d+$'
+    example: "1.1.0"
+
+  # ---------------------------------------------------------------------------
+  # revision_history — 修订历史
+  # ---------------------------------------------------------------------------
+  revision_history:
+    type: array
+    description: >
+      修订历史记录。每次保存时追加一条记录，用于版本追溯和协作。
+      第一条记录通常为 AI 生成时的初始版本。
+    items:
+      type: object
+      required:
+        - revision_number
+        - timestamp
+        - change_summary
+      properties:
+        revision_number:
+          type: integer
+          minimum: 1
+          description: 修订序号，从 1 开始递增
+        timestamp:
+          type: string
+          format: date-time
+          description: 修订时间，ISO 8601 格式
+        author:
+          type: string
+          description: 修订者（"AI" 或人工编辑署名）
+          example: "AI" / "张三"
+        change_summary:
+          type: string
+          description: 本次修订的变更摘要
+          example: "AI 初始生成；重写第三幕高潮对白；删除冗余场景 7"
+        changed_beats:
+          type: array
+          description: 本次修订涉及的 beat_id 列表（可选，便于精确回溯）
+          items:
+            type: string
+            pattern: '^E\d+A\d+S\d+B\d+$'
+    example:
+      - revision_number: 1
+        timestamp: "2024-06-05T10:30:00+08:00"
+        author: "AI"
+        change_summary: "AI 初始生成，覆盖原著第1-3章"
+      - revision_number: 2
+        timestamp: "2024-06-05T14:20:00+08:00"
+        author: "张三"
+        change_summary: "重写第一幕高潮场景对白，删除 AI 过渡节拍 E1A1S1B5"
+        changed_beats: ["E1A1S1B5", "E1A1S3B2", "E1A1S3B3"]
+
+  # ---------------------------------------------------------------------------
+  # metadata — 作品元信息
+  # ---------------------------------------------------------------------------
+  metadata:
+    type: object
+    description: 描述剧本来源、目标媒介及创作参数的元数据
+    required:
+      - title
+      - target_medium
+      - language
+      - generated_at
+    properties:
+
+      title:
+        type: string
+        description: 剧本标题（通常继承自原著名或由 AI 生成）
+        minLength: 1
+        maxLength: 200
+        example: "长安十二时辰"
+
+      original_title:
+        type: string
+        description: 原著小说标题
+        example: "长安十二时辰"
+
+      author:
+        type: string
+        description: 原著作者
+        example: "马伯庸"
+
+      source_type:
+        type: string
+        description: 来源文本类型
+        enum: [novel, web_novel, short_story, comic, other]
+        example: "novel"
+
+      target_medium:
+        type: string
+        description: >
+          目标改编媒介，决定剧本格式规范：
+          - film: 电影（单幕结构，90-120分钟）
+          - tv_series: 电视连续剧（多集）
+          - web_series: 网络剧
+          - stage_play: 舞台剧（含换景指示）
+          - audio_drama: 广播剧/有声剧
+        enum: [film, tv_series, web_series, stage_play, audio_drama]
+        example: "tv_series"
+
+      episode_info:
+        type: object
+        description: 剧集信息（target_medium 为 tv_series/web_series 时必填）
+        properties:
+          episode_number:
+            type: integer
+            minimum: 1
+            description: 本集集号
+          episode_title:
+            type: string
+            description: 本集标题
+          total_episodes:
+            type: integer
+            minimum: 1
+            description: 全剧总集数（已知时填写）
+          season:
+            type: integer
+            minimum: 1
+            description: 季号
+        example:
+          episode_number: 1
+          episode_title: "第一集"
+          total_episodes: 24
+
+      language:
+        type: string
+        description: 剧本语言，BCP-47 语言标签
+        pattern: '^[a-z]{2,3}(-[A-Z]{2,3})?$'
+        example: "zh-CN"
+
+      genre:
+        type: array
+        description: 类型标签，可多选
+        items:
+          type: string
+          enum:
+            [
+              action, adventure, comedy, crime, drama, fantasy,
+              historical, horror, mystery, romance, sci_fi,
+              thriller, wuxia, xianxia, suspense, other
+            ]
+        example: ["historical", "thriller"]
+
+      tone:
+        type: string
+        description: 整体基调
+        enum: [serious, comedic, dark, lighthearted, epic, intimate, mixed]
+        example: "serious"
+
+      rating:
+        type: string
+        description: 目标分级（影响内容尺度）
+        enum: [G, PG, PG_13, R, NC_17, unrated, CN_general, CN_restricted]
+        example: "CN_general"
+
+      source_chapters:
+        type: object
+        description: 原著章节覆盖范围
+        properties:
+          start_chapter:
+            type: integer
+            minimum: 1
+            description: 起始章节序号
+          end_chapter:
+            type: integer
+            minimum: 1
+            description: 结束章节序号
+          chapter_titles:
+            type: array
+            description: 原著章节标题列表（按顺序）
+            items:
+              type: string
+        example:
+          start_chapter: 1
+          end_chapter: 5
+          chapter_titles: ["第一章 困局", "第二章 入局", "第三章 变局"]
+
+      estimated_runtime_minutes:
+        type: integer
+        description: 预估时长（分钟），由 AI 根据场景数量和节奏估算
+        minimum: 1
+        example: 45
+
+      conversion_config:
+        type: object
+        description: 本次 AI 转换所使用的配置参数（用于追溯和复现）
+        properties:
+          ai_provider:
+            type: string
+            description: AI 服务提供商
+            enum: [deepseek, openai, anthropic, zhipu, moonshot, custom]
+            default: "deepseek"
+            example: "deepseek"
+          ai_model:
+            type: string
+            description: 使用的具体模型标识，如 deepseek-chat / gpt-4o / claude-sonnet-4-20250514
+            default: "deepseek-chat"
+            example: "deepseek-chat"
+          ai_api_base_url:
+            type: string
+            description: 自定义 API 端点（ai_provider 为 custom 时使用）
+            example: "https://your-proxy.com/v1"
+          dialogue_density:
+            type: string
+            description: 对白密度配置
+            enum: [sparse, balanced, dense]
+            default: "balanced"
+          action_detail_level:
+            type: string
+            description: 动作描写详细程度
+            enum: [minimal, standard, detailed]
+            default: "standard"
+          stage_direction_style:
+            type: string
+            description: 舞台指示风格
+            enum: [concise, descriptive]
+            default: "descriptive"
+          ai_model_display:
+            type: string
+            description: 执行转换的 AI 模型显示名（自动从 ai_provider + ai_model 组合，用于人类阅读）
+          prompt_version:
+            type: string
+            description: 使用的 Prompt 版本号
+
+      generated_at:
+        type: string
+        format: date-time
+        description: 剧本生成时间，ISO 8601 格式
+        example: "2024-06-05T10:30:00+08:00"
+
+      last_modified_at:
+        type: string
+        format: date-time
+        description: 最后修改时间（人工编辑后更新）
+
+      notes:
+        type: string
+        description: 编剧备注或改编说明，自由文本
+        example: "本集着重还原原著第一章的紧张氛围，删除了部分回忆叙事"
+
+  # ---------------------------------------------------------------------------
+  # characters — 人物表
+  # ---------------------------------------------------------------------------
+  characters:
+    type: array
+    description: >
+      全剧人物表，每个角色在此定义一次，通过 character_id 在场景中引用。
+      保持人物表的单一数据源（Single Source of Truth）。
+    minItems: 1
+    items:
+      type: object
+      required:
+        - character_id
+        - name
+        - role_type
+      properties:
+
+        character_id:
+          type: string
+          description: >
+            人物唯一标识符，全剧唯一，用于 beats 中的引用。
+            命名规范：snake_case，建议使用拼音或英文
+          pattern: '^[a-z][a-z0-9_]*$'
+          example: "zhang_xiaojing"
+
+        name:
+          type: string
+          description: 人物姓名（剧本中显示的名称）
+          example: "张小敬"
+
+        aliases:
+          type: array
+          description: 别名、绰号或在不同场合使用的称呼
+          items:
+            type: string
+          example: ["十年未死", "死囚"]
+
+        role_type:
+          type: string
+          description: >
+            角色类型：
+            - protagonist: 主角
+            - antagonist: 反派/对立角色
+            - supporting: 重要配角
+            - minor: 次要角色
+            - narrator: 旁白者（仅舞台剧/有声剧使用）
+            - ensemble: 群像角色
+          enum: [protagonist, antagonist, supporting, minor, narrator, ensemble]
+          example: "protagonist"
+
+        gender:
+          type: string
+          enum: [male, female, non_binary, unknown]
+          example: "male"
+
+        age_range:
+          type: string
+          description: 年龄范围描述（剧本格式通常不写精确年龄）
+          example: "30s"
+
+        description:
+          type: string
+          description: 人物简介：外貌、性格、身份背景，供演员参考
+          example: "前长安不良帅，死囚出身，眼神锐利，行事果断，内心藏有难以言说的执念"
+
+        arc:
+          type: string
+          description: 本剧/本集中的人物弧线（成长轨迹）
+          example: "从被动求生到主动担当，完成对长安城的救赎也完成对自我的救赎"
+
+        first_appearance:
+          type: object
+          description: 首次出场位置（使用全局场景号，不受幕边界影响）
+          properties:
+            act_number:
+              type: integer
+              minimum: 1
+              description: 首次出场所在幕号
+            scene_global_number:
+              type: integer
+              minimum: 1
+              description: 首次出场所在场景的全局场景号
+
+        relationships:
+          type: array
+          description: 与其他角色的关系（仅描述直接关系，不重复录入）
+          items:
+            type: object
+            required: [target_character_id, relationship_type]
+            properties:
+              target_character_id:
+                type: string
+                description: 关联角色的 character_id
+              relationship_type:
+                type: string
+                description: 关系类型
+                enum:
+                  [
+                    ally, enemy, lover, family, mentor, student,
+                    colleague, rival, unknown, other
+                  ]
+              relationship_description:
+                type: string
+                description: 关系详述
+          example:
+            - target_character_id: "li_bi"
+              relationship_type: "ally"
+              relationship_description: "长安最后一夜中的临时搭档，互相猜疑又互相依存"
+
+        voice_notes:
+          type: string
+          description: 配音/表演提示（语气、口音、语速风格）
+          example: "语速偏慢，带着西北口音，克制中透着压抑的爆发力"
+
+  # ---------------------------------------------------------------------------
+  # locations — 地点表（可选，复杂剧本中复用场景地点）
+  # ---------------------------------------------------------------------------
+  locations:
+    type: array
+    description: 剧本中出现的地点定义，供 scenes 中的 location_id 引用
+    items:
+      type: object
+      required: [location_id, name]
+      properties:
+
+        location_id:
+          type: string
+          description: 地点唯一标识符
+          pattern: '^[a-z][a-z0-9_]*$'
+          example: "jing_an_si"
+
+        name:
+          type: string
+          description: 地点正式名称
+          example: "靖安司大堂"
+
+        location_type:
+          type: string
+          description: 内景/外景
+          enum: [interior, exterior, mixed]
+          example: "interior"
+
+        description:
+          type: string
+          description: 地点环境描述（场景设计参考）
+          example: "宽阔的大堂，四壁悬挂地图，中央摆放沙盘，烛光摇曳，气氛肃杀"
+
+        parent_location_id:
+          type: string
+          description: 所属更大地点的 location_id（如"靖安司大堂"属于"靖安司"）
+
+  # ---------------------------------------------------------------------------
+  # acts — 幕结构
+  # ---------------------------------------------------------------------------
+  acts:
+    type: array
+    description: >
+      剧本幕次列表。
+      电影通常 1 幕（或按三幕式结构细分为 3 幕）；
+      剧集每集通常 1 幕，内含多场景；
+      舞台剧通常 2-3 幕，含换幕休息。
+    minItems: 1
+    items:
+      type: object
+      required:
+        - act_number
+      properties:
+
+        act_number:
+          type: integer
+          description: 幕序号，从 1 开始
+          minimum: 1
+          example: 1
+
+        act_title:
+          type: string
+          description: 幕标题（可选，部分剧本格式有此设计）
+          example: "第一幕 末日黎明"
+
+        act_type:
+          type: string
+          description: >
+            幕的叙事功能（三幕式分析）：
+            - setup: 建置（引入人物、世界观、冲突起点）
+            - confrontation: 对抗（冲突升级、转折点）
+            - resolution: 结局（高潮、解决）
+          enum: [setup, confrontation, resolution, other]
+          example: "setup"
+
+        synopsis:
+          type: string
+          description: 本幕故事梗概（AI 生成，供编辑快速定位）
+          example: "张小敬被从死牢提出，接受拯救长安的任务。他与靖安司的矛盾初步显现。"
+
+        # -----------------------------------------------------------------------
+        # scenes — 场景列表
+        # -----------------------------------------------------------------------
+        scenes:
+          type: array
+          description: 本幕内的场景列表，一个场景对应一个连续的时空单位
+          minItems: 0
+          items:
+            type: object
+            required:
+              - scene_number
+              - scene_global_number
+              - location
+              - time_of_day
+            properties:
+
+              scene_number:
+                type: integer
+                description: 场景在本幕内的序号，从 1 开始
+                minimum: 1
+                example: 1
+
+              scene_global_number:
+                type: integer
+                description: >
+                  场景在全剧中的全局序号，从 1 开始连续编号。
+                  用于跨幕引用和剧本标准格式（场景头标注）
+                minimum: 1
+                example: 1
+
+              location:
+                type: object
+                description: 场景地点信息
+                required: [name, interior_exterior]
+                properties:
+                  location_id:
+                    type: string
+                    description: 引用 locations 表中的 location_id（如已定义）
+                  name:
+                    type: string
+                    description: 场景头标准格式的地点名称（全大写）
+                    example: "靖安司大堂"
+                  interior_exterior:
+                    type: string
+                    description: 内景（INT.）或外景（EXT.）
+                    enum: [INT, EXT, INT_EXT]
+                    example: "INT"
+                  set_description:
+                    type: string
+                    description: 布景/环境简述，供美术部门参考
+                    example: "烛火通明，四壁地图，中央沙盘，门外侍卫林立"
+
+              time_of_day:
+                type: string
+                description: >
+                  场景时间，用于场景头标注。
+                  可使用标准术语（DAY/NIGHT/DAWN/DUSK/CONTINUOUS/LATER）
+                  或剧情内具体时间（如"巳时三刻"）
+                example: "夜"
+
+              scene_heading:
+                type: string
+                description: >
+                  标准剧本格式的场景头。
+                  默认由工具根据 location/interior_exterior/time_of_day 自动组合生成。
+                  当 scene_heading_override 为 true 时，此字段由用户手动编写，
+                  不再随 location/time_of_day 变化而自动更新。
+                example: "INT. 靖安司大堂 — 夜"
+
+              scene_heading_override:
+                type: boolean
+                description: >
+                  标记 scene_heading 是否为手动覆盖。
+                  false（默认）：工具自动生成 scene_heading，
+                  修改 location 或 time_of_day 时自动重新组合。
+                  true：用户手动编写 scene_heading，
+                  修改 location 或 time_of_day 时保持此值不变。
+                default: false
+
+              source_chapter_ref:
+                type: string
+                description: 本场景对应的原著章节引用（方便作者核对）
+                example: "第一章 第3节"
+
+              synopsis:
+                type: string
+                description: 本场景故事梗概（一两句话，供快速定位）
+                example: "靖安司少丞李泌向张小敬说明任务：十二时辰内找出狼卫，阻止恐袭。"
+
+              dramatic_function:
+                type: string
+                description: >
+                  场景的叙事功能（有助于结构审查）：
+                  - inciting_incident: 激励事件
+                  - plot_point: 情节点/转折
+                  - midpoint: 中点
+                  - climax: 高潮
+                  - exposition: 说明/背景交代
+                  - character_moment: 人物时刻（情感深化）
+                  - action: 动作场景
+                  - transition: 过渡场景
+                enum:
+                  [
+                    inciting_incident, plot_point, midpoint, climax,
+                    exposition, character_moment, action, transition, other
+                  ]
+                example: "inciting_incident"
+
+              tension_level:
+                type: integer
+                description: 场景张力/紧张度（1-5，1最低，5最高），用于节奏分析
+                minimum: 1
+                maximum: 5
+                example: 4
+
+              characters_present:
+                type: array
+                description: 本场景出现的角色 character_id 列表（含非对白角色）
+                items:
+                  type: string
+                example: ["zhang_xiaojing", "li_bi", "xu_bin"]
+
+              props:
+                type: array
+                description: 重要道具列表（道具部门参考）
+                items:
+                  type: object
+                  required: [name]
+                  properties:
+                    name:
+                      type: string
+                      description: 道具名称
+                    significance:
+                      type: string
+                      description: 道具在场景中的作用
+                example:
+                  - name: "鱼肠剑"
+                    significance: "张小敬的武器，也是他身份的象征"
+
+              estimated_duration_seconds:
+                type: integer
+                description: >
+                  预估场景时长（秒），由 AI 根据节拍时长估算
+                  （即本场景所有 beat.estimated_duration_seconds 之和）
+                minimum: 1
+                example: 180
+
+              continuity_notes:
+                type: string
+                description: >
+                  接景连续性注释（v1.1.0 新增）。
+                  记录服装、道具、化妆、时间等需要与前后场景保持一致的细节，
+                  供场记/服装/化妆部门参考。
+                example: "注意：张小敬左臂在此场景中已受伤，下一场景需保持血迹位置一致"
+
+              # ----------------------------------------------------------------
+              # beats — 剧情节拍（最小叙事单元）
+              # ----------------------------------------------------------------
+              beats:
+                type: array
+                description: >
+                  场景内的剧情节拍序列。
+                  一个 beat 是不可再分的叙事动作单位：
+                  一段对白、一个动作、一次转场指示或一段旁白。
+                  节拍的顺序即剧本的阅读顺序。
+                  允许为空（minItems: 0），以支持场景大纲阶段 beats 尚未展开时的状态。
+                minItems: 0
+                items:
+
+                  # ==========================================================
+                  # beat 公共属性（所有 beat_type 通用）
+                  # ==========================================================
+                  type: object
+                  required:
+                    - beat_id
+                    - beat_type
+                  properties:
+
+                    beat_id:
+                      type: string
+                      description: >
+                        节拍唯一标识符，全剧唯一。
+                        命名规范：E{集号}A{幕号}S{场景全局号}B{节拍序号}
+                        单集或无集号时使用 E1 作为默认值。
+                        示例：E1A1S3B7（第1集，第1幕，第3个全局场景，第7个节拍）
+                      pattern: '^E\d+A\d+S\d+B\d+$'
+                      example: "E1A1S1B1"
+
+                    beat_type:
+                      type: string
+                      description: >
+                        节拍类型：
+                        - action: 动作/行为描写（场景描述中的可见行为）
+                        - dialogue: 对白（含说话者）
+                        - parenthetical: 括注（对白的表演提示，置于人名下方）
+                        - transition: 场景转场指示（FADE IN/CUT TO 等）
+                        - title_card: 字幕卡（时间地点说明字幕）
+                        - voice_over: 画外音（VO）
+                        - off_screen: 画外音（OS，角色在场但不在画面内）
+                        - montage_start: 蒙太奇段落开始
+                        - montage_end: 蒙太奇段落结束
+                        - flashback_start: 闪回段落开始（v1.1.0 新增）
+                        - flashback_end: 闪回段落结束（v1.1.0 新增）
+                        - insert: 插入镜头（特写某物）
+                      enum:
+                        [
+                          action, dialogue, parenthetical, transition,
+                          title_card, voice_over, off_screen,
+                          montage_start, montage_end,
+                          flashback_start, flashback_end,
+                          insert
+                        ]
+                      example: "dialogue"
+
+                    # -- 动作节拍专属 ------------------------------------------
+                    action_text:
+                      type: string
+                      description: >
+                        [beat_type = action] 动作描写正文。
+                        遵循剧本规范：现在时态、第三人称、只描述可见/可听内容，
+                        不描述内心活动（内心活动通过对白/旁白表达）
+                      example: "张小敬缓步走入靖安司大堂，眼神扫过四壁地图，停在一处不起眼的标记上。"
+
+                    # -- 对白节拍专属 ------------------------------------------
+                    character_id:
+                      type: string
+                      description: >
+                        [beat_type = dialogue/parenthetical/voice_over/off_screen]
+                        说话角色的 character_id，必须存在于 characters 表中
+                      example: "li_bi"
+
+                    character_name_display:
+                      type: string
+                      description: >
+                        剧本中显示的角色名称（全大写，标准格式）。
+                        当角色以化名出场时，此字段可与 characters 表中的 name 不同
+                      example: "李泌"
+
+                    dialogue_text:
+                      type: string
+                      description: >
+                        [beat_type = dialogue/voice_over/off_screen] 对白正文。
+                        保留原著对白意味，按剧本格式书写（不加引号）
+                      example: "长安城今夜有危险。我需要你帮我找到那批人。"
+
+                    parenthetical_text:
+                      type: string
+                      description: >
+                        [beat_type = parenthetical] 括注文本，置于角色名下方、对白上方。
+                        仅在必要时使用（如语气与常规完全相反、重要的身体动作打断对白）
+                      example: "（冷笑）"
+
+                    # -- 转场节拍专属 ------------------------------------------
+                    transition_type:
+                      type: string
+                      description: "[beat_type = transition] 转场方式"
+                      enum:
+                        [
+                          CUT_TO, FADE_IN, FADE_OUT, FADE_TO_BLACK,
+                          DISSOLVE_TO, SMASH_CUT, MATCH_CUT,
+                          WIPE_TO, IRIS_IN, IRIS_OUT, TIME_CUT
+                        ]
+                      example: "CUT_TO"
+
+                    # -- 字幕卡专属 ------------------------------------------
+                    title_card_text:
+                      type: string
+                      description: "[beat_type = title_card] 字幕卡显示文字"
+                      example: "长安城，天宝三年，上元节前夕"
+
+                    # -- 插入镜头专属 ------------------------------------------
+                    insert_description:
+                      type: string
+                      description: "[beat_type = insert] 插入镜头描述（特写的物品或细节）"
+                      example: "沙盘上，一枚黑色棋子被悄然移动，指向靖安司。"
+
+                    # -- 闪回段落专属（v1.1.0 新增）--------------------------
+                    flashback_label:
+                      type: string
+                      description: >
+                        [beat_type = flashback_start] 闪回段落的标识标签，
+                        用于区分多个闪回段落，也用于渲染时标注（如 SUPER: "三年前"）
+                      example: "三年前"
+
+                    # -- 通用可选字段 ------------------------------------------
+                    emotion:
+                      type: string
+                      description: >
+                        本节拍的情绪基调（辅助表演/配乐参考，不出现在最终印刷稿中）。
+                        自由描述或使用通用词汇
+                      example: "压抑、克制、暗涌"
+
+                    camera_suggestion:
+                      type: string
+                      description: >
+                        镜头建议（仅供参考，非标准剧本内容，正式改稿时删除）。
+                        AI 生成初稿时可附加，导演可选择采纳
+                      example: "近景，低角度仰拍，突出张小敬的压迫感"
+
+                    # -- 原文溯源（v1.1.0 重新设计）---------------------------
+                    source_ref:
+                      type: object
+                      description: >
+                        结构化原文引用，指向原著中对应的段落。
+                        用于工具实现"点击跳转原文"功能。
+                        同时保留 source_text_ref 作为人类可读摘要。
+                      properties:
+                        chapter:
+                          type: integer
+                          minimum: 1
+                          description: 原著章节序号
+                        paragraph:
+                          type: integer
+                          minimum: 1
+                          description: 原著段落序号（从章节开头计数）
+                        excerpt:
+                          type: string
+                          description: 原著对应文本片段（截取关键句）
+                      example:
+                        chapter: 1
+                        paragraph: 3
+                        excerpt: "他的眼睛扫过大堂四壁，停在一处不起眼的标记上。"
+
+                    source_text_ref:
+                      type: string
+                      description: >
+                        对应原著文本片段的人类可读摘要（用于在 YAML 中快速核对）。
+                        如需结构化跳转，请使用 source_ref 字段。
+                      example: "原文：'他的眼睛扫过大堂四壁，停在一处不起眼的标记上。'"
+
+                    is_ai_generated:
+                      type: boolean
+                      description: >
+                        标记此节拍是否为 AI 新增（非直接源自原著，如过渡对白）。
+                        AI 生成初稿时，所有 AI 补充的 beat 默认标记为 true；
+                        直接源自原著的 beat 标记为 false。
+                      default: true
+
+                    editorial_note:
+                      type: string
+                      description: 编辑备注（编剧在修改过程中留下的注释）
+
+                    estimated_duration_seconds:
+                      type: integer
+                      description: >
+                        预估节拍时长（秒），v1.1.0 新增。
+                        动作 beat 约 10-30 秒，对白 beat 按每汉字 0.25 秒估算。
+                        scene.estimated_duration_seconds 为本场景所有 beat 时长之和。
+                      minimum: 1
+                      example: 15
+
+                    music_cue:
+                      type: string
+                      description: >
+                        音乐节点建议（v1.1.0 新增，仅供创作参考，
+                        音乐设计由作曲完成）。如"此处置入弦乐渐强，持续至转场"
+                      example: "低沉弦乐渐入，营造紧迫感"
+
+                  # ==========================================================
+                  # 条件必填约束：根据 beat_type 动态要求不同字段
+                  # ==========================================================
+                  allOf:
+                    # --- dialogue / voice_over / off_screen ---
+                    - if:
+                        properties:
+                          beat_type:
+                            enum: [dialogue, voice_over, off_screen]
+                        required: [beat_type]
+                      then:
+                        required: [character_id, dialogue_text]
+
+                    # --- action ---
+                    - if:
+                        properties:
+                          beat_type:
+                            const: action
+                        required: [beat_type]
+                      then:
+                        required: [action_text]
+
+                    # --- parenthetical ---
+                    - if:
+                        properties:
+                          beat_type:
+                            const: parenthetical
+                        required: [beat_type]
+                      then:
+                        required: [character_id, parenthetical_text]
+
+                    # --- transition ---
+                    - if:
+                        properties:
+                          beat_type:
+                            const: transition
+                        required: [beat_type]
+                      then:
+                        required: [transition_type]
+
+                    # --- title_card ---
+                    - if:
+                        properties:
+                          beat_type:
+                            const: title_card
+                        required: [beat_type]
+                      then:
+                        required: [title_card_text]
+
+                    # --- insert ---
+                    - if:
+                        properties:
+                          beat_type:
+                            const: insert
+                        required: [beat_type]
+                      then:
+                        required: [insert_description]
+
+                    # --- flashback_start ---
+                    - if:
+                        properties:
+                          beat_type:
+                            const: flashback_start
+                        required: [beat_type]
+                      then:
+                        required: [flashback_label]
+
+  # ---------------------------------------------------------------------------
+  # production_notes — 制作附注（可选）
+  # ---------------------------------------------------------------------------
+  production_notes:
+    type: object
+    description: 面向制片/导演的整体备注，不影响结构数据
+    properties:
+
+      adaptation_decisions:
+        type: array
+        description: 重要改编决策说明（删改了什么、为何如此处理）
+        items:
+          type: object
+          required: [decision, rationale]
+          properties:
+            decision:
+              type: string
+              description: 改编决策描述
+            rationale:
+              type: string
+              description: 决策理由
+        example:
+          - decision: "删除原著第二章中的回忆叙事段落"
+            rationale: "回忆叙事不适合影视线性叙事，人物背景改为通过对白和行为暗示"
+
+      unresolved_items:
+        type: array
+        description: 待解决的改编问题（版权、情节冲突、演员限制等）
+        items:
+          type: string
+        example:
+          - "第三幕高潮场景需与原著作者确认是否可以改动结局"
+
+      suggested_music_cues:
+        type: array
+        description: 音乐节点建议（仅参考，音乐设计由作曲完成）
+        items:
+          type: object
+          properties:
+            scene_global_number:
+              type: integer
+            suggestion:
+              type: string
+
+# =============================================================================
+# 完整示例实例（用于工具开发测试和文档说明）
+# =============================================================================
+examples:
+  - schema_version: "1.1.0"
+    revision_history:
+      - revision_number: 1
+        timestamp: "2024-06-05T10:30:00+08:00"
+        author: "AI"
+        change_summary: "AI 初始生成，覆盖原著第1-2章"
+    metadata:
+      title: "长安十二时辰"
+      original_title: "长安十二时辰"
+      author: "马伯庸"
+      source_type: "novel"
+      target_medium: "tv_series"
+      episode_info:
+        episode_number: 1
+        episode_title: "第一集 困局"
+        total_episodes: 24
+        season: 1
+      language: "zh-CN"
+      genre: ["historical", "thriller"]
+      tone: "serious"
+      rating: "CN_general"
+      source_chapters:
+        start_chapter: 1
+        end_chapter: 2
+        chapter_titles: ["第一章 困局", "第二章 入局"]
+      estimated_runtime_minutes: 45
+      conversion_config:
+        ai_provider: "deepseek"
+        ai_model: "deepseek-chat"
+        dialogue_density: "balanced"
+        action_detail_level: "standard"
+        stage_direction_style: "descriptive"
+        ai_model_display: "DeepSeek Chat"
+        prompt_version: "1.2.0"
+      generated_at: "2024-06-05T10:30:00+08:00"
+      notes: "本集以巳时为起点，着重建立人物关系和世界观"
+
+    characters:
+      - character_id: "zhang_xiaojing"
+        name: "张小敬"
+        aliases: ["十年未死", "死囚"]
+        role_type: "protagonist"
+        gender: "male"
+        age_range: "30s"
+        description: "前长安不良帅，死囚出身，眼神锐利，行事果断"
+        arc: "从被动求生到主动担当"
+        first_appearance:
+          act_number: 1
+          scene_global_number: 1
+        relationships:
+          - target_character_id: "li_bi"
+            relationship_type: "ally"
+            relationship_description: "互相猜疑的临时搭档"
+        voice_notes: "语速偏慢，带西北口音"
+
+      - character_id: "li_bi"
+        name: "李泌"
+        aliases: ["靖安司少丞"]
+        role_type: "supporting"
+        gender: "male"
+        age_range: "20s"
+        description: "少年天才，靖安司少丞，理性冷静，内藏锋芒"
+        arc: "从书生谋士到临危决断"
+        first_appearance:
+          act_number: 1
+          scene_global_number: 1
+
+    locations:
+      - location_id: "jing_an_si"
+        name: "靖安司"
+        location_type: "interior"
+        description: "长安城内的情报中枢，宽阔大堂，四壁地图，烛光摇曳"
+
+    acts:
+      - act_number: 1
+        act_title: "第一幕 困局"
+        act_type: "setup"
+        synopsis: "张小敬被从死牢提出，接受拯救长安的任务。"
+        scenes:
+          - scene_number: 1
+            scene_global_number: 1
+            location:
+              location_id: "jing_an_si"
+              name: "靖安司大堂"
+              interior_exterior: "INT"
+              set_description: "烛火通明，四壁地图，中央沙盘"
+            time_of_day: "夜"
+            scene_heading: "INT. 靖安司大堂 — 夜"
+            scene_heading_override: false
+            source_chapter_ref: "第一章"
+            synopsis: "李泌向张小敬说明任务：十二时辰内找出狼卫。"
+            dramatic_function: "inciting_incident"
+            tension_level: 4
+            characters_present: ["zhang_xiaojing", "li_bi"]
+            estimated_duration_seconds: 195
+            beats:
+              - beat_id: "E1A1S1B1"
+                beat_type: "action"
+                action_text: "张小敬被带入靖安司大堂。脚镣声在大理石地面上回响。他扫视四周，神情平静得异乎寻常。"
+                estimated_duration_seconds: 20
+                source_ref:
+                  chapter: 1
+                  paragraph: 2
+                  excerpt: "张小敬被带进大堂，脚镣声在空旷的大堂中分外刺耳。"
+                source_text_ref: "原文：'张小敬被带进大堂……'"
+                is_ai_generated: false
+
+              - beat_id: "E1A1S1B2"
+                beat_type: "dialogue"
+                character_id: "li_bi"
+                character_name_display: "李泌"
+                dialogue_text: "长安城今夜有危险。我需要你帮我找到那批人。"
+                emotion: "冷静而紧迫"
+                estimated_duration_seconds: 5
+                source_ref:
+                  chapter: 1
+                  paragraph: 4
+                  excerpt: "李泌开口道：'长安城今夜有危险。'"
+                source_text_ref: "原文对白"
+                is_ai_generated: false
+
+              - beat_id: "E1A1S1B3"
+                beat_type: "parenthetical"
+                character_id: "zhang_xiaojing"
+                character_name_display: "张小敬"
+                parenthetical_text: "（停顿，打量李泌）"
+                estimated_duration_seconds: 3
+                is_ai_generated: true
+
+              - beat_id: "E1A1S1B4"
+                beat_type: "dialogue"
+                character_id: "zhang_xiaojing"
+                character_name_display: "张小敬"
+                dialogue_text: "你凭什么觉得，我会帮你？"
+                emotion: "试探、警惕"
+                estimated_duration_seconds: 3
+                source_ref:
+                  chapter: 1
+                  paragraph: 5
+                  excerpt: "张小敬盯着他，缓缓道：'你凭什么觉得，我会帮你？'"
+                source_text_ref: "原文对白"
+                is_ai_generated: false
+
+              - beat_id: "E1A1S1B5"
+                beat_type: "transition"
+                transition_type: "CUT_TO"
+                estimated_duration_seconds: 0
+
+    production_notes:
+      adaptation_decisions:
+        - decision: "将原著第一章的内心独白改为对白与动作暗示"
+          rationale: "影视化需要外化人物内心，独白过多影响节奏"
+      unresolved_items:
+        - "第18集结局场景需与版权方确认改编尺度"

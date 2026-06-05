@@ -1,0 +1,633 @@
+# =============================================================================
+# Novel Analysis YAML Schema  v1.1.0
+# AI 小说转剧本工具 — 小说导入与分析阶段产物
+# =============================================================================
+# 阶段 1 输出：对小说的全面分析，供后续改编规划使用
+# =============================================================================
+
+$schema: "http://json-schema.org/draft-07/schema#"
+$id: "https://your-domain.com/schemas/novel-analysis/v1.1.0"
+title: NovelAnalysis
+description: >
+  小说导入与分析的标准化输出。包含主题、世界观、剧情、人物、
+  章节五个维度的分析结果，是改编规划阶段的核心输入。
+type: object
+required:
+  - schema_version
+  - source_info
+  - chapter_summaries
+  - character_analysis
+  - plot_analysis
+
+properties:
+
+  # ---------------------------------------------------------------------------
+  # schema_version
+  # ---------------------------------------------------------------------------
+  schema_version:
+    type: string
+    pattern: '^\d+\.\d+\.\d+$'
+    example: "1.1.0"
+
+  # ---------------------------------------------------------------------------
+  # source_info — 小说基本信息
+  # ---------------------------------------------------------------------------
+  source_info:
+    type: object
+    required:
+      - title
+      - author
+      - total_chapters
+    properties:
+      title:
+        type: string
+        example: "长安十二时辰"
+      author:
+        type: string
+        example: "马伯庸"
+      source_type:
+        type: string
+        enum: [novel, web_novel, short_story, comic, other]
+      total_chapters:
+        type: integer
+        minimum: 1
+        description: 全书总章节数
+      analyzed_chapters:
+        type: object
+        description: 本次分析的章节范围
+        properties:
+          start_chapter:
+            type: integer
+            minimum: 1
+          end_chapter:
+            type: integer
+            minimum: 1
+      language:
+        type: string
+        pattern: '^[a-z]{2,3}(-[A-Z]{2,3})?$'
+        example: "zh-CN"
+      word_count:
+        type: integer
+        description: 分析范围内的总字数
+
+  # ---------------------------------------------------------------------------
+  # theme_analysis — 主题分析
+  # ---------------------------------------------------------------------------
+  theme_analysis:
+    type: object
+    description: 小说的主题维度分析
+    properties:
+      core_themes:
+        type: array
+        description: 核心主题列表（按重要性排序）
+        items:
+          type: object
+          required: [theme, description]
+          properties:
+            theme:
+              type: string
+              description: 主题名称
+              example: "秩序与混沌的对抗"
+            description:
+              type: string
+              description: 主题在小说中的具体体现
+              example: "长安城表面繁华有序，暗处各方势力蠢蠢欲动"
+            embodied_by:
+              type: array
+              description: 体现该主题的关键人物或事件
+              items:
+                type: string
+      secondary_themes:
+        type: array
+        description: 次要主题
+        items:
+          type: object
+          required: [theme, description]
+          properties:
+            theme:
+              type: string
+            description:
+              type: string
+      tonal_characteristics:
+        type: array
+        description: 小说基调特征（用于改编时保持一致性）
+        items:
+          type: string
+        example: ["紧张", "史诗感", "暗黑", "人性博弈"]
+
+  # ---------------------------------------------------------------------------
+  # world_building — 世界观分析
+  # ---------------------------------------------------------------------------
+  world_building:
+    type: object
+    description: 小说的世界观架构分析
+    properties:
+      era:
+        type: string
+        description: 时代背景
+        example: "唐朝天宝三年，安史之乱前夕"
+      setting_scale:
+        type: string
+        description: 故事发生的地理范围
+        enum: [single_location, city, region, nation, multi_nation, world, universe]
+        example: "city"
+      key_locations:
+        type: array
+        description: 关键地点及其在故事中的作用
+        items:
+          type: object
+          required: [name, significance]
+          properties:
+            name:
+              type: string
+              example: "靖安司"
+            significance:
+              type: string
+              description: 该地点在故事中的功能
+              example: "情报中枢，权力斗争的核心场所"
+            associated_characters:
+              type: array
+              items:
+                type: string
+      power_system:
+        type: string
+        description: >
+          权力/力量体系描述（政治势力、超自然力量等）。
+          对于武侠/奇幻类小说尤为重要
+        example: "朝廷（靖安司）vs 狼卫（恐怖组织）vs 地下势力；无超自然力量"
+      rules_and_constraints:
+        type: array
+        description: 世界规则和限制（对改编的重要约束）
+        items:
+          type: string
+        example:
+          - "十二时辰（24小时）的倒计时是核心约束"
+          - "长安城为封闭空间，大范围移动受限"
+      atmosphere:
+        type: string
+        description: 整体氛围描述
+        example: "肃杀、紧张、暗流涌动，繁华表象下的危机四伏"
+
+  # ---------------------------------------------------------------------------
+  # plot_analysis — 剧情分析
+  # ---------------------------------------------------------------------------
+  plot_analysis:
+    type: object
+    required:
+      - main_plot
+      - core_conflict
+      - key_events
+    properties:
+
+      main_plot:
+        type: object
+        description: 故事主线
+        required: [description, stakes]
+        properties:
+          description:
+            type: string
+            description: 主线概述（一两句话）
+            example: "死囚张小敬被临时启用，在十二时辰内阻止狼卫对长安的恐怖袭击"
+          stakes:
+            type: string
+            description: 核心赌注/失败的后果
+            example: "长安城全城百姓的生命安全；王朝的稳定"
+
+      sub_plots:
+        type: array
+        description: 支线/暗线
+        items:
+          type: object
+          required: [description, connection_to_main]
+          properties:
+            description:
+              type: string
+              example: "靖安司内部权力斗争"
+            connection_to_main:
+              type: string
+              description: 与主线的关联方式
+              example: "权力斗争影响情报获取和决策效率，间接阻碍主线任务"
+            key_characters:
+              type: array
+              items:
+                type: string
+
+      core_conflict:
+        type: object
+        description: 核心冲突分析
+        required: [type, description]
+        properties:
+          type:
+            type: string
+            enum:
+              [
+                person_vs_person, person_vs_society, person_vs_nature,
+                person_vs_self, person_vs_technology, person_vs_fate,
+                mixed
+              ]
+            example: "person_vs_society"
+          description:
+            type: string
+            example: "张小敬个人正义 vs 体制的腐败与无能的层层阻力"
+          conflict_layers:
+            type: array
+            description: 冲突的多个层面
+            items:
+              type: object
+              required: [layer, description]
+              properties:
+                layer:
+                  type: string
+                  example: "外部冲突"
+                description:
+                  type: string
+                  example: "与狼卫的追捕与反追捕"
+
+      key_events:
+        type: array
+        description: 关键事件时间线（按剧情顺序）
+        items:
+          type: object
+          required: [event, chapter, description]
+          properties:
+            event:
+              type: string
+              description: 事件名称
+              example: "张小敬被从死牢提出"
+            chapter:
+              type: integer
+              description: 所在章节号
+            description:
+              type: string
+              description: 事件简述
+            dramatic_function:
+              type: string
+              description: 在故事结构中的作用
+              enum:
+                [
+                  inciting_incident, plot_point_1, midpoint,
+                  plot_point_2, climax, resolution, other
+                ]
+              example: "inciting_incident"
+
+      narrative_structure:
+        type: object
+        description: 叙事结构特点
+        properties:
+          timeline_type:
+            type: string
+            enum: [linear, nonlinear, parallel, framed, reverse, mixed]
+            example: "linear"
+          pov_type:
+            type: string
+            enum: [single, multiple, omniscient, first_person, mixed]
+            example: "multiple"
+          narrative_devices:
+            type: array
+            description: 使用的叙事技巧
+            items:
+              type: string
+            example: ["倒计时", "多线并行", "信息不对等"]
+          pacing_summary:
+            type: string
+            description: 原著节奏特点总结
+            example: "快节奏，时间压力驱动，但穿插回忆和人物背景介绍作为缓冲"
+
+  # ---------------------------------------------------------------------------
+  # character_analysis — 人物分析
+  # ---------------------------------------------------------------------------
+  character_analysis:
+    type: array
+    description: 每个重要人物的详细分析
+    minItems: 1
+    items:
+      type: object
+      required:
+        - character_id
+        - name
+        - role
+        - importance
+      properties:
+
+        character_id:
+          type: string
+          pattern: '^[a-z][a-z0-9_]*$'
+          description: >
+            人物唯一标识符，全剧唯一。命名规范：snake_case 拼音。
+            阶段 2 的 characters_draft 和阶段 3 的 characters 表沿用此 ID。
+            这是连接三个阶段的人物引用桥梁。
+          example: "zhang_xiaojing"
+
+        name:
+          type: string
+          example: "张小敬"
+
+        aliases:
+          type: array
+          items:
+            type: string
+          example: ["十年未死", "死囚"]
+
+        role:
+          type: string
+          enum: [protagonist, antagonist, supporting, minor, narrator, ensemble]
+          example: "protagonist"
+
+        importance:
+          type: string
+          enum: [essential, major, supporting, minor, cameo]
+          description: >
+            该人物对故事的重要性评级：
+            - essential: 不可删减的核心人物
+            - major: 重要但可适度压缩
+            - supporting: 功能性配角
+            - minor: 可合并或删减
+          example: "essential"
+
+        identity:
+          type: string
+          description: 身份背景
+          example: "前长安不良帅，现任死囚，被临时启用调查恐袭"
+
+        motivation:
+          type: object
+          required: [external, internal]
+          properties:
+            external:
+              type: string
+              description: 外部动机（任务层面）
+              example: "在十二时辰内阻止恐袭，换取自由"
+            internal:
+              type: string
+              description: 内部动机（心理层面）
+              example: "对曾经未能保护的人感到愧疚，渴望救赎"
+
+        character_arc:
+          type: string
+          description: 人物弧线描述
+          example: "从被动求生的死囚 → 主动承担责任的守护者"
+
+        relationships:
+          type: array
+          items:
+            type: object
+            required: [target_character_id, type, description]
+            properties:
+              target_character_id:
+                type: string
+                description: 对方人物的 character_id
+                example: "li_bi"
+              type:
+                type: string
+                enum:
+                  [ally, enemy, lover, family, mentor, student,
+                   colleague, rival, ambiguous, other]
+              description:
+                type: string
+              dynamics:
+                type: string
+                description: 关系动态变化（如何随着剧情推进而演变）
+                example: "从互相猜疑到互相依存再到最终信任"
+
+        distinctive_traits:
+          type: object
+          description: 人物特征（对白风格、习惯动作等，用于剧本写作）
+          properties:
+            speech_style:
+              type: string
+              example: "语速偏慢，言简意赅，带西北口音，克制中透压抑"
+            catchphrases:
+              type: array
+              items:
+                type: string
+            habits:
+              type: array
+              description: 习惯性动作
+              items:
+                type: string
+              example: ["用锐利的目光扫视环境", "手指无意识地敲击桌面"]
+            appearance:
+              type: string
+              example: "30多岁，眼神锐利，面部有旧伤疤，身形精悍"
+
+        adaptability_notes:
+          type: string
+          description: >
+            改编适用性说明。例如：该人物的内心独白多（需外化）、
+            该人物出场分散（需合并场景）、该人物可与其他配角合并等
+          example: "内心活动丰富，需大量外化为对白和微表情。与姚汝能的部分功能可合并。"
+
+  # ---------------------------------------------------------------------------
+  # chapter_summaries — 章节摘要
+  # ---------------------------------------------------------------------------
+  chapter_summaries:
+    type: array
+    description: 每章的摘要信息，保留原文结构以便溯源
+    minItems: 1
+    items:
+      type: object
+      required:
+        - chapter_number
+        - summary
+      properties:
+        chapter_number:
+          type: integer
+          minimum: 1
+        chapter_title:
+          type: string
+        summary:
+          type: string
+          description: 本章核心内容摘要（200字以内）
+        key_events:
+          type: array
+          description: 本章关键事件列表
+          items:
+            type: string
+        characters_appeared:
+          type: array
+          description: 本章出场人物
+          items:
+            type: string
+        locations:
+          type: array
+          description: 本章涉及地点
+          items:
+            type: string
+        paragraph_count:
+          type: integer
+          description: 段落数（用于 source_ref 的 paragraph 索引范围）
+        adaptation_potential:
+          type: string
+          enum: [high, medium, low, skip]
+          description: >
+            改编潜力评级：
+            - high: 关键章节，必须保留核心内容
+            - medium: 可压缩但不建议完全删除
+            - low: 过渡性内容，可大幅压缩
+            - skip: 可考虑整章跳过（如纯说明性章节）
+
+        raw_passages:
+          type: array
+          description: >
+            原文关键段落集合。以段落为粒度存储原文正文。
+            每个段落用其在章节内的序号（从 1 开始）标识，
+            用于精确定位和后续 source_ref 的 paragraph 字段。
+            这是整个流水线的"原文数据源"——阶段 2 的 source_context
+            和阶段 3 的 source_ref 都从这里提取。
+          items:
+            type: object
+            required:
+              - paragraph
+              - text
+            properties:
+              paragraph:
+                type: integer
+                minimum: 1
+                description: 段落序号（在章节内从 1 开始），对应 source_ref.paragraph
+              text:
+                type: string
+                description: 段落原文完整文本
+              type:
+                type: string
+                enum: [narrative, dialogue, mixed, description, action, internal_monologue]
+                description: >
+                  段落类型：narrative(叙述) / dialogue(对白) / mixed(混合) /
+                  description(描写) / action(动作) / internal_monologue(内心独白)
+              speakers:
+                type: array
+                description: 本段落中说话的人物 character_id 列表
+                items:
+                  type: string
+              significance:
+                type: string
+                enum: [critical, major, minor]
+                description: >
+                  critical: 核心情节段落不可偏离 /
+                  major: 可适度改写 /
+                  minor: 可大幅压缩或跳过
+              adaptation_hint:
+                type: string
+                description: 改编提示（如"此段为内心独白需外化为对白"）
+
+  # ---------------------------------------------------------------------------
+  # ai_config — AI 引擎配置
+  # ---------------------------------------------------------------------------
+  ai_config:
+    type: object
+    description: 本次分析使用的 AI 引擎配置
+    properties:
+      ai_provider:
+        type: string
+        enum: [deepseek, openai, anthropic, zhipu, moonshot, custom]
+        default: "deepseek"
+        example: "deepseek"
+      ai_model:
+        type: string
+        default: "deepseek-chat"
+        example: "deepseek-chat"
+      ai_api_base_url:
+        type: string
+        description: 自定义 API 端点
+
+  # ---------------------------------------------------------------------------
+  # generated_at
+  # ---------------------------------------------------------------------------
+  generated_at:
+    type: string
+    format: date-time
+    description: 分析生成时间
+    example: "2024-06-05T10:00:00+08:00"
+
+  # ---------------------------------------------------------------------------
+  # ai_model — 已废弃，保留兼容
+  # ---------------------------------------------------------------------------
+  ai_model:
+    type: string
+    description: 已废弃。请使用 ai_config.ai_model
+    example: "claude-sonnet-4"
+
+# =============================================================================
+# 示例
+# =============================================================================
+examples:
+  - schema_version: "1.1.0"
+    source_info:
+      title: "长安十二时辰"
+      author: "马伯庸"
+      source_type: "novel"
+      total_chapters: 24
+      analyzed_chapters:
+        start_chapter: 1
+        end_chapter: 3
+      language: "zh-CN"
+      word_count: 28500
+    theme_analysis:
+      core_themes:
+        - theme: "秩序与混沌的对抗"
+          description: "长安城表面繁华有序，暗处各方势力蠢蠢欲动"
+      secondary_themes:
+        - theme: "个人正义与体制腐败"
+          description: "张小敬以个人能力对抗整个官僚体系的低效与腐败"
+      tonal_characteristics: ["紧张", "史诗感", "暗黑", "人性博弈"]
+    world_building:
+      era: "唐朝天宝三年"
+      setting_scale: "city"
+      key_locations:
+        - name: "靖安司"
+          significance: "情报中枢，权力斗争核心"
+      power_system: "朝廷 vs 狼卫 vs 地下势力"
+      rules_and_constraints:
+        - "十二时辰倒计时为核心约束"
+      atmosphere: "肃杀、紧张、暗流涌动"
+    plot_analysis:
+      main_plot:
+        description: "死囚张小敬被临时启用，在十二时辰内阻止对长安的恐怖袭击"
+        stakes: "长安城全城百姓的生命安全"
+      core_conflict:
+        type: "person_vs_society"
+        description: "张小敬个人正义 vs 体制的层层阻力"
+      key_events:
+        - event: "张小敬被从死牢提出"
+          chapter: 1
+          description: "靖安司少丞李泌从死牢中提出张小敬，赋予拯救长安的任务"
+          dramatic_function: "inciting_incident"
+    character_analysis:
+      - character_id: "zhang_xiaojing"
+        name: "张小敬"
+        role: "protagonist"
+        importance: "essential"
+        identity: "前长安不良帅，死囚出身"
+        motivation:
+          external: "阻止恐袭，换取自由"
+          internal: "对曾经未能保护的人感到愧疚"
+        character_arc: "从被动求生的死囚到主动担当的守护者"
+    chapter_summaries:
+      - chapter_number: 1
+        chapter_title: "第一章 困局"
+        summary: "长安城表面平静，靖安司接获线报有狼卫潜入。少丞李泌力排众议，决定从死牢提出前不良帅张小敬协助破案。"
+        key_events: ["狼卫潜入长安", "李泌提审张小敬"]
+        characters_appeared: ["张小敬", "李泌", "徐宾"]
+        locations: ["死牢", "靖安司"]
+        paragraph_count: 45
+        adaptation_potential: "high"
+        raw_passages:
+          - paragraph: 1
+            text: "天宝三年的长安，上元节前夕，满城张灯结彩。然而靖安司的密室里，却弥漫着一股肃杀之气。"
+            type: "description"
+            significance: "major"
+          - paragraph: 2
+            text: "李泌将一份密报推到烛光下，手指点了点上面的名字。'狼卫已经进来了。'他对面前的徐宾说道，声音压得极低。"
+            type: "dialogue"
+            speakers: ["li_bi"]
+            significance: "critical"
+          - paragraph: 3
+            text: "徐宾面色一白。'多少人？''至少五个。他们的目标是上元节当天的——'李泌没有说完，但他手指的方向已经说明了一切。"
+            type: "dialogue"
+            speakers: ["li_bi", "xu_bin"]
+            significance: "critical"
+          - paragraph: 4
+            text: "一阵沉默后，李泌站直了身体。'去死牢。'他说，'把那个人提出来。'"
+            type: "action"
+            significance: "critical"
+            adaptation_hint: "此段心理张力强，改编时需保留沉默的节奏和李泌决策的艰难感"
+

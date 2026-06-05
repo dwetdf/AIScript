@@ -1,0 +1,708 @@
+# =============================================================================
+# Adaptation Plan YAML Schema  v1.1.0
+# AI 小说转剧本工具 — 改编规划阶段产物
+# =============================================================================
+# 阶段 2 输出：基于小说分析结果，制定改编策略和分幕/分场景规划
+# =============================================================================
+
+$schema: "http://json-schema.org/draft-07/schema#"
+$id: "https://your-domain.com/schemas/adaptation-plan/v1.1.0"
+title: AdaptationPlan
+description: >
+  改编规划的标准化输出。连接"小说分析"与"剧本生成"两个阶段，
+  包含改编策略、幕划分、场景大纲规划。输出中场景级字段
+  可直接映射到最终 Screenplay Schema 的 scenes。
+type: object
+required:
+  - schema_version
+  - adaptation_strategy
+  - episode_plan
+  - scene_plan
+
+properties:
+
+  # ---------------------------------------------------------------------------
+  # schema_version
+  # ---------------------------------------------------------------------------
+  schema_version:
+    type: string
+    pattern: '^\d+\.\d+\.\d+$'
+    example: "1.1.0"
+
+  # ---------------------------------------------------------------------------
+  # source_analysis_ref — 关联的小说分析
+  # ---------------------------------------------------------------------------
+  source_analysis_ref:
+    type: object
+    description: 指向本次改编所依据的小说分析产物
+    properties:
+      analysis_file:
+        type: string
+        description: novel-analysis.yaml 文件路径或哈希
+      analysis_generated_at:
+        type: string
+        format: date-time
+      chapters_covered:
+        type: object
+        properties:
+          start_chapter:
+            type: integer
+          end_chapter:
+            type: integer
+
+  # ---------------------------------------------------------------------------
+  # adaptation_strategy — 改编策略
+  # ---------------------------------------------------------------------------
+  adaptation_strategy:
+    type: object
+    description: 从小说到剧本的整体改编策略
+    required:
+      - target_medium
+      - tone_adaptation
+      - structural_decisions
+    properties:
+
+      target_medium:
+        type: string
+        enum: [film, tv_series, web_series, stage_play, audio_drama]
+        example: "tv_series"
+
+      tone_adaptation:
+        type: object
+        description: 基调映射策略：原著基调 → 剧本基调
+        required: [source_tone, target_tone, notes]
+        properties:
+          source_tone:
+            type: string
+            description: 原著整体基调（来自 novel_analysis）
+          target_tone:
+            type: string
+            enum: [serious, comedic, dark, lighthearted, epic, intimate, mixed]
+            description: 剧本目标基调
+          notes:
+            type: string
+            description: 基调转换说明
+            example: "保留原著的紧张和史诗感，略微降低暗黑程度以适配分级"
+
+      structural_decisions:
+        type: array
+        description: 结构性改编决策列表（最重要）
+        items:
+          type: object
+          required: [decision, rationale, impact]
+          properties:
+            decision:
+              type: string
+              example: "删除原著中所有回忆叙事段落"
+            rationale:
+              type: string
+              example: "线性叙事更适合电视剧集节奏"
+            impact:
+              type: string
+              enum: [high, medium, low]
+              description: 决策的影响程度
+              example: "high"
+            affected_characters:
+              type: array
+              description: 受此决策影响的人物 character_id 列表
+              items:
+                type: string
+                pattern: '^[a-z][a-z0-9_]*$'
+            affected_chapters:
+              type: array
+              description: 受此决策影响的章节
+              items:
+                type: integer
+
+      character_adaptations:
+        type: array
+        description: 人物改编决策
+        items:
+          type: object
+          required: [character_id, action]
+          properties:
+            character_id:
+              type: string
+              pattern: '^[a-z][a-z0-9_]*$'
+              description: 人物标识符（沿用 novel_analysis 中分配的 character_id）
+              example: "zhang_xiaojing"
+            action:
+              type: string
+              enum: [keep, merge, reduce, expand, cut]
+              description: >
+                - keep: 保持原样
+                - merge: 与其他角色合并
+                - reduce: 减少戏份
+                - expand: 增加戏份
+                - cut: 删除
+            merge_with:
+              type: string
+              pattern: '^[a-z][a-z0-9_]*$'
+              description: 合并到的目标人物 character_id（action 为 merge 时填写）
+              example: "yao_runeng"
+            notes:
+              type: string
+              example: "内心独白量大，需要设计足够的对白场景来外化"
+
+      pacing_strategy:
+        type: object
+        description: 节奏规划
+        properties:
+          overall_pacing:
+            type: string
+            enum: [fast, moderate, slow, varied]
+            example: "varied"
+          high_tension_ratio:
+            type: number
+            description: 高张力场景（tension 4-5）的目标占比
+            minimum: 0
+            maximum: 1
+          breathing_room:
+            type: string
+            description: 节奏缓冲策略
+            example: "每连续两个高张力场景后插入一个 character_moment 或 transition 场景"
+
+      externalization_strategy:
+        type: string
+        description: >
+          内心活动外化策略。描述如何将小说中的心理描写、内心独白
+          转化为可拍摄的剧本内容
+        example: >
+          1. 关键内心冲突 → 增设角色间对白场景；
+          2. 环境感受 → 转化为动作描写中的细节（表情、停顿、动作节奏）；
+          3. 价值观权衡 → 通过"选择"而非"独白"来展示
+
+      compression_rules:
+        type: array
+        description: 叙述压缩规则
+        items:
+          type: object
+          required: [rule, applies_to]
+          properties:
+            rule:
+              type: string
+              example: "环境描写三句合一：保留空间感、氛围词、关键物品，删除色彩修饰"
+            applies_to:
+              type: string
+              enum: [environment, action, dialogue, all]
+            priority:
+              type: string
+              enum: [must, should, may]
+
+  # ---------------------------------------------------------------------------
+  # episode_plan — 集/幕规划
+  # ---------------------------------------------------------------------------
+  episode_plan:
+    type: object
+    description: >
+      顶层结构规划。对于电影，此模块即为幕规划；
+      对于剧集，此模块为分集+分幕规划。
+    required:
+      - acts
+    properties:
+
+      total_acts:
+        type: integer
+        minimum: 1
+        description: 总幕数
+        example: 3
+
+      acts:
+        type: array
+        description: 幕级规划
+        minItems: 1
+        items:
+          type: object
+          required:
+            - act_number
+            - act_type
+            - synopsis
+          properties:
+            act_number:
+              type: integer
+              minimum: 1
+            act_title:
+              type: string
+              example: "第一幕 困局"
+            act_type:
+              type: string
+              enum: [setup, confrontation, resolution, other]
+            synopsis:
+              type: string
+              description: 本幕故事梗概
+            estimated_scene_count:
+              type: integer
+              minimum: 1
+              description: 预估场景数量
+            estimated_duration_minutes:
+              type: integer
+              description: 预估幕时长（分钟）
+            key_moments:
+              type: array
+              description: 本幕必须包含的关键时刻
+              items:
+                type: object
+                required: [moment, from_chapter]
+                properties:
+                  moment:
+                    type: string
+                    description: 关键时刻描述
+                    example: "张小敬接受任务"
+                  from_chapter:
+                    type: integer
+                    description: 来自原著哪一章
+                  dramatic_function:
+                    type: string
+                    enum:
+                      [
+                        inciting_incident, plot_point, midpoint,
+                        climax, exposition, character_moment, action, transition, other
+                      ]
+            source_chapters:
+              type: array
+              description: 本幕对应的原著章节
+              items:
+                type: integer
+              example: [1, 2, 3]
+
+  # ---------------------------------------------------------------------------
+  # scene_plan — 分场景大纲规划
+  # ---------------------------------------------------------------------------
+  scene_plan:
+    type: array
+    description: >
+      所有场景的大纲级规划。每个场景在此定义其位置、目的和关键内容，
+      但不包含 beat 级别的细节。
+      此数组中的场景对象可直接作为 Screenplay Schema 中 scenes[] 的初始化数据。
+    minItems: 1
+    items:
+      type: object
+      required:
+        - scene_global_number
+        - act_number
+        - scene_number
+        - location
+        - time_of_day
+        - synopsis
+        - dramatic_function
+      properties:
+
+        scene_global_number:
+          type: integer
+          minimum: 1
+          description: 全局场景序号
+
+        act_number:
+          type: integer
+          minimum: 1
+          description: 所属幕号
+
+        scene_number:
+          type: integer
+          minimum: 1
+          description: 幕内场景序号
+
+        location:
+          type: object
+          description: 场景地点信息（最终填入 Screenplay 时可直接使用）
+          required: [name, interior_exterior]
+          properties:
+            location_id:
+              type: string
+              description: 地点唯一标识（如已从 novel_analysis 中提取的地点表）
+            name:
+              type: string
+              example: "靖安司大堂"
+            interior_exterior:
+              type: string
+              enum: [INT, EXT, INT_EXT]
+              example: "INT"
+            set_description:
+              type: string
+              description: 简要布景说明
+              example: "烛火通明，四壁地图，中央沙盘"
+
+        time_of_day:
+          type: string
+          description: 场景时间
+          example: "夜"
+
+        synopsis:
+          type: string
+          description: 本场景故事梗概（一两句话）
+          example: "李泌向张小敬说明任务：十二时辰内找出狼卫，阻止恐袭。张小敬初显不信任。"
+
+        dramatic_function:
+          type: string
+          description: 场景在叙事中的功能
+          enum:
+            [
+              inciting_incident, plot_point, midpoint, climax,
+              exposition, character_moment, action, transition, other
+            ]
+          example: "inciting_incident"
+
+        tension_level:
+          type: integer
+          minimum: 1
+          maximum: 5
+          description: 预估张力等级
+          example: 4
+
+        characters_present:
+          type: array
+          description: 预计出场的角色 character_id 列表
+          items:
+            type: string
+          example: ["zhang_xiaojing", "li_bi"]
+
+        source_chapter_ref:
+          type: string
+          description: 对应原著章节
+          example: "第一章"
+
+        source_context:
+          type: object
+          description: >
+            本场景对应的原著原文片段集合，阶段 3 beat 展开时作为 Prompt 注入，
+            确保 AI 基于原文写作而非仅依赖一句话梗概。
+            这是防止"传话游戏"式内容漂移的关键字段。
+          properties:
+            summary:
+              type: string
+              description: 原著中本段情节的详细概述（500字以内），比 synopsis 更贴近原文
+              example: "李泌屏退左右后，向张小敬详述了狼卫潜入长安的情报来源、已掌握的行动时间窗口，以及朝中阻力。张小敬起初沉默，用审视的目光打量这位年轻少丞。李泌坦言自己力排众议才将他提出死牢——这个决定一旦失败，两人都将万劫不复。张小敬终于开口，第一句话不是问任务细节，而是问'我凭什么信你'。"
+            key_dialogues:
+              type: array
+              description: 原著中本段的关键对白原文（保持原样，供 AI 改写时参考）
+              items:
+                type: object
+                required: [speaker, text]
+                properties:
+                  speaker:
+                    type: string
+                    description: 说话者姓名（中文显示名，来自原著标注——source_context 是场景级人类可读摘要）
+                    example: "李泌"
+                  text:
+                    type: string
+                    description: 原著对白原文
+                    example: "长安城今夜有危险。狼卫已至，他们会在上元节动手。"
+                  context_note:
+                    type: string
+                    description: 这段对白在原著中的上下文说明（语气、场景、前因后果）
+                    example: "李泌说此话时神情克制但语气紧迫，他不能让旁人看出自己的焦虑"
+            key_actions:
+              type: array
+              description: 原著中本段的关键动作描写原文或摘要
+              items:
+                type: object
+                required: [description]
+                properties:
+                  description:
+                    type: string
+                    example: "张小敬被带入大堂时，脚镣声在空旷的大理石地面上格外刺耳。他扫视四壁地图，目光停在一处标记上，然后看向李泌。"
+            key_descriptions:
+              type: array
+              description: 原著中本段的关键环境/气氛描写原文或摘要
+              items:
+                type: string
+              example:
+                - "靖安司大堂烛火通明，四壁悬挂长安城坊图，中央沙盘上标注着各处兵力部署"
+                - "堂外侍卫林立，但所有人都不敢与张小敬对视"
+            adaptation_notes:
+              type: string
+              description: 本场景改编时的特别注意事项（如哪些内心独白需要外化、哪些叙述需要压缩）
+              example: "原著此段有大量李泌的内心活动（担心张小敬不可控、担心朝中弹劾），这些需要转化为对白中的潜台词和李泌的微表情/停顿，不要使用 VO"
+
+        estimated_duration_seconds:
+          type: integer
+          minimum: 1
+          description: 预估时长（秒），初始为粗略估算，之后由 beat 展开后精确化
+          example: 180
+
+        beat_plan:
+          type: object
+          description: >
+            本场景内预期的节拍类型序列（不是完整 beat 内容，
+            而是对 AI 展开 beat 的指导性规划）
+          properties:
+            estimated_beat_count:
+              type: integer
+              description: 预估节拍总数
+            key_beats:
+              type: array
+              description: 必须包含的关键节拍（按顺序）
+              items:
+                type: object
+                required: [order, description]
+                properties:
+                  order:
+                    type: integer
+                    description: 在场景中的序号
+                  beat_type:
+                    type: string
+                    description: 预期节拍类型
+                    enum:
+                      [
+                        action, dialogue, parenthetical, transition,
+                        title_card, voice_over, off_screen,
+                        montage_start, montage_end,
+                        flashback_start, flashback_end, insert
+                      ]
+                  description:
+                    type: string
+                    description: 该节拍要表达的内容
+                    example: "张小敬首次开口，表达不信任"
+                  character_id:
+                    type: string
+                    description: 对白/括注节拍的说话角色
+                  from_source:
+                    type: boolean
+                    description: 是否直接来自原著（对应 is_ai_generated 的反值）
+              example:
+                - order: 1
+                  beat_type: "action"
+                  description: "张小敬被带入大堂的威慑氛围"
+                  from_source: true
+                - order: 2
+                  beat_type: "dialogue"
+                  description: "李泌说明任务"
+                  character_id: "li_bi"
+                  from_source: true
+                - order: 3
+                  beat_type: "parenthetical"
+                  description: "张小敬的停顿和打量"
+                  character_id: "zhang_xiaojing"
+                  from_source: false
+                - order: 4
+                  beat_type: "dialogue"
+                  description: "张小敬反问，表达不信任"
+                  character_id: "zhang_xiaojing"
+                  from_source: true
+            notes:
+              type: string
+              description: 本场景 beat 展开的特别说明
+              example: "这场戏的关键在于两人第一次见面的张力。李泌要展现'天才少年的自信'，张小敬要展现'死囚的漠然与警惕'。"
+
+  # ---------------------------------------------------------------------------
+  # characters_draft — 人物表初稿
+  # ---------------------------------------------------------------------------
+  characters_draft:
+    type: array
+    description: >
+      基于人物分析生成的 characters 表初稿（可直接导入 Screenplay）。
+      每个条目对应最终 Schema 中的一个 character。
+    items:
+      type: object
+      required:
+        - character_id
+        - name
+        - role_type
+      properties:
+        character_id:
+          type: string
+          pattern: '^[a-z][a-z0-9_]*$'
+          example: "zhang_xiaojing"
+        name:
+          type: string
+          example: "张小敬"
+        aliases:
+          type: array
+          items:
+            type: string
+        role_type:
+          type: string
+          enum: [protagonist, antagonist, supporting, minor, narrator, ensemble]
+        description:
+          type: string
+        arc:
+          type: string
+        relationships:
+          type: array
+          items:
+            type: object
+            required: [target_character_id, relationship_type]
+            properties:
+              target_character_id:
+                type: string
+              relationship_type:
+                type: string
+                enum:
+                  [
+                    ally, enemy, lover, family, mentor, student,
+                    colleague, rival, unknown, other
+                  ]
+              relationship_description:
+                type: string
+        voice_notes:
+          type: string
+
+  # ---------------------------------------------------------------------------
+  # locations_draft — 地点表初稿
+  # ---------------------------------------------------------------------------
+  locations_draft:
+    type: array
+    description: 从小说分析中提取的地点表初稿
+    items:
+      type: object
+      required: [location_id, name]
+      properties:
+        location_id:
+          type: string
+          pattern: '^[a-z][a-z0-9_]*$'
+        name:
+          type: string
+        location_type:
+          type: string
+          enum: [interior, exterior, mixed]
+        description:
+          type: string
+        parent_location_id:
+          type: string
+
+  # ---------------------------------------------------------------------------
+  # ai_config — AI 引擎配置
+  # ---------------------------------------------------------------------------
+  ai_config:
+    type: object
+    description: 本次规划使用的 AI 引擎配置
+    properties:
+      ai_provider:
+        type: string
+        enum: [deepseek, openai, anthropic, zhipu, moonshot, custom]
+        default: "deepseek"
+        example: "deepseek"
+      ai_model:
+        type: string
+        default: "deepseek-chat"
+        example: "deepseek-chat"
+      ai_api_base_url:
+        type: string
+        description: 自定义 API 端点
+
+  # ---------------------------------------------------------------------------
+  # generated_at
+  # ---------------------------------------------------------------------------
+  generated_at:
+    type: string
+    format: date-time
+    example: "2024-06-05T10:15:00+08:00"
+
+  ai_model:
+    type: string
+    description: 已废弃。请使用 ai_config.ai_model
+    example: "claude-sonnet-4"
+
+# =============================================================================
+# 示例
+# =============================================================================
+examples:
+  - schema_version: "1.1.0"
+    source_analysis_ref:
+      analysis_file: "novel-analysis_cs12sc.yaml"
+      chapters_covered:
+        start_chapter: 1
+        end_chapter: 3
+    adaptation_strategy:
+      target_medium: "tv_series"
+      tone_adaptation:
+        source_tone: "紧张、史诗感、暗黑"
+        target_tone: "serious"
+        notes: "保留紧张和史诗感，降低暗黑程度适配电视分级"
+      structural_decisions:
+        - decision: "删除回忆叙事，人物背景改为通过对白和行为暗示"
+          rationale: "线性叙事更适合电视剧集节奏"
+          impact: "high"
+          affected_chapters: [2]
+      character_adaptations:
+        - character_id: "zhang_xiaojing"
+          action: "keep"
+          notes: "内心独白量大，需增设对白场景外化"
+      pacing_strategy:
+        overall_pacing: "varied"
+        high_tension_ratio: 0.4
+        breathing_room: "每两个高张力场景后插入人物时刻"
+      externalization_strategy: >
+        关键内心冲突 → 增设角色间对白场景；
+        环境感受 → 转化为动作描写细节；
+        价值观权衡 → 通过'选择'而非'独白'展示
+      compression_rules:
+        - rule: "环境描写三句合一：保留空间感、氛围词、关键物品"
+          applies_to: "environment"
+          priority: "must"
+    episode_plan:
+      total_acts: 1
+      acts:
+        - act_number: 1
+          act_title: "第一幕 困局"
+          act_type: "setup"
+          synopsis: "张小敬被从死牢提出，接受拯救长安的任务。人物关系和世界观初步建立。"
+          estimated_scene_count: 8
+          estimated_duration_minutes: 45
+          key_moments:
+            - moment: "张小敬接受任务"
+              from_chapter: 1
+              dramatic_function: "inciting_incident"
+            - moment: "靖安司内部权力博弈显露"
+              from_chapter: 2
+              dramatic_function: "exposition"
+          source_chapters: [1, 2, 3]
+    scene_plan:
+      - scene_global_number: 1
+        act_number: 1
+        scene_number: 1
+        location:
+          name: "靖安司大堂"
+          interior_exterior: "INT"
+          set_description: "烛火通明，四壁地图，中央沙盘"
+        time_of_day: "夜"
+        synopsis: "李泌向张小敬说明任务：十二时辰内找出狼卫。"
+        dramatic_function: "inciting_incident"
+        tension_level: 4
+        characters_present: ["zhang_xiaojing", "li_bi"]
+        source_chapter_ref: "第一章"
+        source_context:
+          summary: "李泌屏退左右，向张小敬详述狼卫情报。张小敬沉默审视。李泌坦言自己力排众议提出死囚——失败则两人俱亡。张小敬开口第一句不是问任务，而是'凭什么信你'。"
+          key_dialogues:
+            - speaker: "李泌"
+              text: "长安城今夜有危险。狼卫已至，他们会在上元节动手。我需要你帮我找到那批人。"
+              context_note: "李泌神情克制但语气紧迫，掌控局面但内心焦虑"
+            - speaker: "张小敬"
+              text: "你凭什么觉得，我会帮你？"
+              context_note: "张小敬直视李泌，目光中有审视也有试探，这是他开口的第一句话"
+          key_actions:
+            - description: "张小敬被带入靖安司大堂。脚镣声在大理石地面上回响。他缓缓扫视四壁地图，目光停在一处标记上，然后转向李泌。"
+          key_descriptions:
+            - "靖安司大堂烛火通明，四壁悬挂长安坊图，中央沙盘标注各处兵力部署"
+            - "堂外侍卫林立，但无人敢直视刚被提出的死囚"
+          adaptation_notes: "原著李泌内心独白（担心张小敬不可控）需外化为微表情和语气停顿。张小敬的沉默需用镜头留白表现。"
+        estimated_duration_seconds: 180
+        beat_plan:
+          estimated_beat_count: 16
+          key_beats:
+            - order: 1
+              beat_type: "action"
+              description: "张小敬被带入大堂"
+              from_source: true
+            - order: 4
+              beat_type: "dialogue"
+              description: "李泌说明任务"
+              character_id: "li_bi"
+              from_source: true
+            - order: 6
+              beat_type: "dialogue"
+              description: "张小敬表达不信任"
+              character_id: "zhang_xiaojing"
+              from_source: true
+          notes: "关键在两人首次交锋的张力"
+    characters_draft:
+      - character_id: "zhang_xiaojing"
+        name: "张小敬"
+        role_type: "protagonist"
+        description: "前长安不良帅，死囚出身"
+        arc: "从被动求生到主动担当"
+    locations_draft:
+      - location_id: "jing_an_si"
+        name: "靖安司"
+        location_type: "interior"
+        description: "长安城情报中枢"
