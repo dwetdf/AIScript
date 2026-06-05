@@ -1,0 +1,268 @@
+# 阶段 1 产物示例 — NovelAnalysis
+#
+# 以下是 AI 分析小说后输出的结构化数据。
+# 保存位置: localStorage['aiscript_project_analysis_default_project']
+# 文件格式: JSON（在浏览器 DevTools → Application → Local Storage 可查看）
+# 也可以导出为 YAML 文件。
+
+schema_version: "1.1.0"
+
+source_info:
+  title: "棋王"
+  author: "阿城"
+  source_type: "novel"
+  total_chapters: 4
+  analyzed_chapters:
+    start_chapter: 1
+    end_chapter: 4
+  language: "zh-CN"
+  word_count: 29137
+
+# ============================================================
+# F7 主题分析 — 改编的"北极星"
+# ============================================================
+theme_analysis:
+  core_themes:
+    - theme: "物质生存与精神追求的辩证法"
+      description: "王一生在极端匮乏的物质环境中，通过下棋找到了超越温饱的精神力量。小说反复探讨吃与棋的关系——吃不饱棋路乱，但吃饱之后还需要精神寄托。"
+      embodied_by:
+        - "王一生对饭粒的虔诚态度"
+        - "火车上关于吃的长篇对白"
+        - "与脚卵下棋时对蛇肉的专注"
+        - "车轮大战时近乎入定的精神状态"
+    - theme: "普通人的英雄主义"
+      description: "王一生不是英雄，只是一个痴迷下棋的知识青年。但在九局连环车轮大战中，他迸发出了平凡生命中的非凡光彩，之后又复归平凡。"
+      embodied_by:
+        - "王一生用无字棋纪念母亲"
+        - "一人对九人的盲棋大战"
+        - "赛前说'不赛了，没意思'"
+  secondary_themes:
+    - theme: "道家哲学在世俗生活中的实践"
+      description: "捡烂纸老头传授的棋道——太盛则折，以柔化之，无为而无不为——贯穿王一生的棋风和人生哲学"
+    - theme: "友情与身份认同"
+      description: "'我'与王一生、脚卵之间的友谊，以及知青群体对王一生的认同感"
+  tonal_characteristics:
+    - "沉静"
+    - "内敛"
+    - "苦涩中带温暖"
+    - "平民视角"
+    - "存在主义色彩"
+
+# ============================================================
+# F8 世界观分析
+# ============================================================
+world_building:
+  era: "1960-70年代中国，知识青年上山下乡时期"
+  setting_scale: "region"
+  key_locations:
+    - name: "火车车厢"
+      significance: "故事起点，王一生与'我'初次相遇。狭小空间内建立起两个陌生人之间的信任。"
+      associated_characters:
+        - "wang_yi_sheng"
+        - "wo"
+    - name: "农场宿舍"
+      significance: "知青生活的缩影。清苦、简陋，但蛇肉宴和象棋对局在此展开。"
+      associated_characters:
+        - "wang_yi_sheng"
+        - "wo"
+        - "ni_bin"
+    - name: "地区棋场"
+      significance: "高潮场景。王一生在此进行九人盲棋车轮大战，千人围观。"
+      associated_characters:
+        - "wang_yi_sheng"
+    - name: "垃圾站"
+      significance: "王一生与捡烂纸老头下盲棋的地方，也是棋道传承的场所。"
+      associated_characters:
+        - "wang_yi_sheng"
+  power_system: "无。这是现实主义的平民世界，权力/财富的对比体现在'能吃饱'和'吃不饱'之间。"
+  rules_and_constraints:
+    - "知青没有选择去留的自由"
+    - "物质极度匮乏（每月五钱油、清水南瓜、交通不便）"
+    - "象棋比赛需要报名资格和政治审查"
+  atmosphere: "灰色基调中的温暖——清苦的知青生活，但因象棋而聚在一起的人们，有了超越物质的精神联结。"
+
+# ============================================================
+# F11-F13 剧情分析
+# ============================================================
+plot_analysis:
+  main_plot:
+    description: "知识青年'我'在去农场的火车上遇见棋呆子王一生，成为朋友。半年后王一生来访，与脚卵下棋，展现惊人棋艺。最终在地区象棋比赛中，王一生因无报名资格未能参赛，却以一人对九人下盲棋，赢得所有人敬重。"
+    stakes: "看似没有传统意义上的'赌注'——王一生不争名次，不求利益。真正的赌注是精神层面的：一个普通人在贫瘠时代里，能否守住自己对象棋的那份纯粹执着。"
+
+  sub_plots:
+    - description: "脚卵倪斌的人情世故线与王一生的纯粹形成对比"
+      connection_to_main: "倪斌用家传明代乌木棋打通关系，为王一生争取参赛资格；但王一生拒绝被交易，选择自己约战前三名——两种价值观的碰撞"
+      key_characters:
+        - "ni_bin"
+        - "wang_yi_sheng"
+    - description: "'我'的旁观者视角——从对王一生的不感兴趣到理解、敬佩"
+      connection_to_main: "叙述者'我'是读者进入故事的入口，也是王一生精神世界的见证者"
+      key_characters:
+        - "wo"
+
+  core_conflict:
+    type: "person_vs_society"
+    description: "王一生的纯粹（只为下棋而下棋）与社会的规则（需要报名、资格、关系）之间的冲突。更深层的是：物质生存与精神追求如何共存？"
+    conflict_layers:
+      - layer: "物质层面"
+        description: "下棋不能当饭吃。母亲临终前说'先说吃，再说下棋'。"
+      - layer: "制度层面"
+        description: "没有报名资格就不能参赛。脚卵可以用棋换名额，但王一生不屑。"
+      - layer: "价值观层面"
+        description: "倪斌把棋当工具（换调动），王一生把棋当命（无字棋如性命）。"
+
+  key_events:
+    - event: "王一生在火车上邀'我'下棋"
+      chapter: 1
+      description: "拥挤的知青专列车厢里，精瘦的王一生主动问'下棋吗'，首次展现对棋的痴迷。两人关于吃的对话揭示王一生的生活哲学。"
+      dramatic_function: "exposition"
+    - event: "捡烂纸老头传授棋道"
+      chapter: 1
+      description: "通过王一生的口述，回忆他与捡烂纸老头的相遇——下盲棋连输五盘，老头传授'太盛则折、以柔化之'的道家棋理，并赠送异书棋谱。"
+      dramatic_function: "plot_point_1"
+    - event: "王一生来农场找'我'，与脚卵下棋"
+      chapter: 2
+      description: "半年后王一生徒步百里来访。蛇肉宴后与脚卵下棋，连赢数局。脚卵说'天下是你的'。"
+      dramatic_function: "midpoint"
+    - event: "脚卵用明代乌木棋为王一生物来参赛资格，王一生拒绝"
+      chapter: 3
+      description: "地区比赛开始，王一生因没报上名无法参赛。脚卵用家传棋和字画为书记疏通关系，王一生却说'不赛了，没意思，被人作了交易'。"
+      dramatic_function: "plot_point_2"
+    - event: "九人盲棋车轮大战"
+      chapter: 4
+      description: "王一生同时与九人下盲棋（包括冠亚季军）。千人围观，万人空巷。数小时后王一生力竭，冠军老者主动求和对弈，话里满是敬意。"
+      dramatic_function: "climax"
+    - event: "王一生哭喊母亲"
+      chapter: 4
+      description: "比赛结束后，王一生看到'我'攥着的无字棋子，猛然嚎啕——'妈，儿今天——妈——'。把一路来对母亲的思念全哭出来。"
+      dramatic_function: "resolution"
+
+  narrative_structure:
+    timeline_type: "linear"
+    pov_type: "single"
+    narrative_devices:
+      - "第一人称旁观者叙述"
+      - "大量对话中嵌入背景故事（王一生口述捡烂纸老头、母亲故事）"
+      - "吃与棋的反复对比"
+      - "赛前赛后的人群描写烘托氛围"
+    pacing_summary: "四章节奏分明：第一章火车上慢速（建立人物）→ 第二章农场中速（深化关系）→ 第三章地区赛中速偏快（情节点）→ 第四章高潮极快（车轮大战一泻千里）→ 尾声回落。如棋局一般，开局布局、中盘博弈、残局决胜、收子回味。"
+
+# ============================================================
+# F14-F17 人物分析
+# ============================================================
+character_analysis:
+  - character_id: "wang_yi_sheng"
+    name: "王一生"
+    aliases:
+      - "棋呆子"
+      - "王一生"
+    role: "protagonist"
+    importance: "essential"
+    identity: "知识青年，精瘦，痴迷下象棋。母亲解放前是窑子出身，在贫穷中把他养大，临终用牙刷把磨了一副无字棋。父亲是后爹，卖力气为生。王一生在象棋上天赋异禀，靠捡烂纸老头传授的道家棋理开悟。"
+    motivation:
+      external: "找人下棋，精进棋艺"
+      internal: "守住对棋的纯粹热爱——不是为了赢、不是为了出名、不是为了好处，就是'呆在棋里舒服'"
+    character_arc: "从痴迷求胜的棋手 → 到悟道后不争名次的棋士 → 最终在九人车轮大战中超越自我、泪喊母亲。完成了从'术'到'道'的蜕变，也完成了对逝去母亲的情感释放。"
+    relationships:
+      - target_character_id: "wo"
+        type: "friend"
+        description: "叙述者'我'是王一生唯一能聊到'吃'和'生活'的朋友，两人在火车上建立信任。'我'是王一生在整个故事中精神历程的见证者。"
+        dynamics: "从互相试探 → 互相理解 → '我'成为最忠实的守护者"
+      - target_character_id: "ni_bin"
+        type: "rival_colleague"
+        description: "脚卵是围棋世家后人，家传棋道，有明代乌木棋。但与王一生相比，脚卵把棋当社交资本，王一生把棋当命。两人对弈后互相尊重。"
+        dynamics: "棋逢对手 → 脚卵甘拜下风 → 脚卵用棋助王一生 → 王一生拒绝'被交易'"
+      - target_character_id: "lao_tou"
+        type: "mentor"
+        description: "捡烂纸的老头，身怀道家棋理，传给王一生'太盛则折、以柔化之'的棋道哲学，并赠送异书棋谱。"
+    distinctive_traits:
+      speech_style: "语速快，直来直去，不讲客套。常用'我他妈的'等粗口。说棋时专注而凶悍，说吃时事无巨细。"
+      catchphrases:
+        - "何以解不痛快？唯有象棋。"
+        - "下棋最好。"
+        - "再来一盘吧。"
+      habits:
+        - "下棋时快如闪电，出手极快"
+        - "吃饭时将饭粒一粒不剩地抹进嘴里"
+        - "紧张时搓手、紧一紧手脸"
+        - "下盲棋时如入定，外界一切无视"
+      appearance: "精瘦，眼睛和牙齿放光，一脸灰土，头发一绺一绺。锁骨后陷下两个深窝，肋骨根根可见。"
+    adaptability_notes: "王一生的内心活动主要通过对话和动作展现，改编时不需要大量内心独白外化——他的哲学通过'说'表达，情感通过'吃'和'下棋'表现。母亲的故事是他情感核心，建议保留回忆/口述段落。"
+
+  - character_id: "wo"
+    name: "我"
+    aliases: []
+    role: "supporting"
+    importance: "major"
+    identity: "知识青年，孤身一人，父母在运动中死去。喜欢读书，对生活有追求但不得。是故事的叙述者和王一生精神历程的见证人。"
+    motivation:
+      external: "在农场清苦生活中寻找意义"
+      internal: "理解王一生这种'活得明白'的人"
+    character_arc: "从不关心象棋 → 被王一生吸引 → 成为最坚定的守护者 → 理解'衣食是本，囿在其中终于不太像人'"
+    distinctive_traits:
+      speech_style: "叙述者口吻，理性分析中带有情感。偶尔自嘲。"
+    adaptability_notes: "叙述者视角可以通过VO（画外音）表现，或在场景中通过反应镜头传递。"
+
+  - character_id: "ni_bin"
+    name: "倪斌"
+    aliases:
+      - "脚卵"
+      - "倪斌"
+    role: "supporting"
+    importance: "major"
+    identity: "高个子知青，南方大城市出身。祖上元代倪云林，家传棋道，有一副明代乌木棋。好面子，爱干净，做事讲究。"
+    motivation:
+      external: "调离农场，有一个干净的地方住"
+      internal: "保持体面，维护家世尊严"
+    character_arc: "从有优越感 → 被王一生棋艺折服 → 用家传棋帮王一生 → 因王一生拒绝而尴尬，但依然追随"
+    distinctive_traits:
+      speech_style: "文雅客气，常有'蛮好蛮好''请坐'等口头禅。说话时手虚放胸前，微微侧身。"
+      catchphrases:
+        - "蛮好，蛮好。"
+        - "你请坐。"
+      appearance: "个子非常高，又非常瘦。动作文气，衣服整整齐齐，纤尘不染。"
+    adaptability_notes: "脚卵是王一生的对照人物——代表了'棋可以当工具'的另一面。他与王一生的对比是核心戏剧冲突之一。他的明代乌木棋是重要道具——象征传承、身份、和可以被交易的艺术。"
+
+# ============================================================
+# F18 章节摘要 + raw_passages（防漂移第一层）
+# ============================================================
+chapter_summaries:
+  - chapter_number: 1
+    chapter_title: "第一章"
+    summary: "车站送别场景中，'我'在火车上遇见王一生（棋呆子）。王一生邀'我'下棋被拒。通过同学，'我'得知王一生的大名和外号。两人在旅途中交流关于吃的记忆和人生哲学。王一生讲述捡烂纸老头的棋道——太盛则折、以柔化之的道家棋理。"
+    key_events:
+      - "火车上与王一生初遇"
+      - "王一生强拉'我'下棋"
+      - "同学揭晓'棋呆子'身份"
+      - "关于吃的长篇对白"
+      - "王一生讲述捡烂纸老头和棋道"
+    characters_appeared:
+      - "wang_yi_sheng"
+      - "wo"
+    locations:
+      - "火车车厢"
+    paragraph_count: 15
+    adaptation_potential: "high"
+    raw_passages:
+      - paragraph: 1
+        text: "車站是亂得不能再亂，成千上萬的人都在說話。誰也不去注意那條臨時掛起來的大紅布標語。"
+        type: "description"
+        significance: "major"
+      - paragraph: 2
+        text: "我的幾個朋友，都已被我送走插隊，現在輪到我了，竟沒有人來送。父母生前頗有些污點，運動一開始即被打翻死去。"
+        type: "narrative"
+        significance: "critical"
+        adaptation_hint: "关键人物背景信息，改编时不能丢失"
+      - paragraph: 3
+        text: "我走動著找我的座位號，卻發現還有一個精瘦的學生孤坐著，手攏在袖管兒裡，隔窗望著車站南邊兒的空車皮。"
+        type: "description"
+        significance: "critical"
+      - paragraph: 4
+        text: "那個學生瞄了我一下，眼裡突然放出光來，問：「下棋嗎？」倒嚇了我一跳，急忙擺手說：「不會！」"
+        type: "dialogue"
+        speakers:
+          - "wang_yi_sheng"
+          - "wo"
+        significance: "critical"
+        adaptation_hint: "王一生第一句台词——直接切入核心性格。这句是人物icon moment。"
+  # ... 后续章节省略，每个章节都有完整的 raw_passages[]

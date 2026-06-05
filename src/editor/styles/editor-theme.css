@@ -1,0 +1,65 @@
+/* ==================================================================
+ * 编辑器和剧本样式
+ * ================================================================== */
+
+/* 全局编辑器样式 */
+
+/* 剧本编辑区 */
+.screenplay-editor {
+  font-family: "Courier New", Courier, "Microsoft YaHei", monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #333;
+  background: #fff;
+}
+
+/* 选中高亮 */
+.beat-selected {
+  background-color: #e3f2fd !important;
+}
+
+/* AI 生成区域 */
+.beat-ai-generated {
+  background-color: #fffde7;
+}
+
+/* 场景头样式 */
+.scene-heading {
+  font-weight: bold;
+  font-size: 13px;
+  margin: 16px 0 4px 0;
+  padding: 6px 8px;
+  background: #f5f5f5;
+  border-left: 4px solid #1976d2;
+}
+
+/* 动作样式 */
+.beat-action {
+  margin: 2px 0;
+  padding: 2px 4px;
+}
+
+/* 对白样式 */
+.beat-dialogue {
+  margin: 4px 0 2px 24px;
+  padding: 2px 4px;
+}
+
+/* 转场样式 */
+.beat-transition {
+  text-align: right;
+  font-weight: bold;
+  margin: 8px 0;
+}
+
+/* 滚动条美化 */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
