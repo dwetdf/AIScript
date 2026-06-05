@@ -60,7 +60,7 @@ const analysis: NovelAnalysis = {
     main_plot: { description: '棋呆子王一生在贫瘠时代中执着下棋，最终在一人对九人的盲棋大战中完成超越', stakes: '一个人的精神纯粹性在极端贫困中能否存活' },
     core_conflict: { type: 'person_vs_society', description: '个人纯粹 vs 社会规则的冲突' },
     key_events: [
-      { event: '火车上初遇王一生', chapter: 1, description: '«我»在知青专列上遇见棋呆子', dramatic_function: 'inciting_incident' },
+      { event: '火车上初遇王一生', chapter: 1, description: '"我"在知青专列上遇见棋呆子', dramatic_function: 'inciting_incident' },
       { event: '九人盲棋大战', chapter: 4, description: '王一生同时与九人下盲棋，千人围观', dramatic_function: 'climax' },
     ],
   },
