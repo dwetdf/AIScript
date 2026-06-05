@@ -3,11 +3,11 @@
 // ============================================================================
 
 import React from 'react';
-import { useScriptStore, useEditorStore } from '@/store';
+import { useScriptStore, useEditorStore } from '../store';
 import { ScriptView } from './views/ScriptView';
 import { OutlineView } from './views/OutlineView';
-import { ConfigPanel } from '@/config/ConfigPanel';
-import { PdfExporter } from '@/renderer/pdf';
+import { ConfigPanel } from '../config/ConfigPanel';
+import { PdfExporter } from '../renderer/pdf';
 import './styles/editor-theme.css';
 
 export const EditorLayout: React.FC = () => {
