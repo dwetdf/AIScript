@@ -177,7 +177,10 @@ export const STAGE_DIRECTION_LABELS: Record<string, string> = {
 // ============================== Beat 展开并发 ==============================
 
 /** Beat 展开时 AI API 默认并发数 */
-export const DEFAULT_BEAT_EXPANSION_CONCURRENCY = 3;
+export const DEFAULT_BEAT_EXPANSION_CONCURRENCY = 5;
+
+/** 每个 Act 内的场景并发数（用于 actGroupedExpandBeats） */
+export const DEFAULT_PER_ACT_CONCURRENCY = 3;
 
 /** Beat 展开最大并发数（防止触发 API 限流） */
 export const MAX_BEAT_EXPANSION_CONCURRENCY = 10;
@@ -187,13 +190,14 @@ export const MAX_BEAT_EXPANSION_CONCURRENCY = 10;
 /** Tier 1 逐章并行分析的默认并发数（flash 模型，并发上限高） */
 export const DEFAULT_TIER1_CONCURRENCY = 8;
 
-/** 分块分析的触发阈值（保留兼容） */
-export const CHUNK_THRESHOLD = 3;
+/** 阶段 1 单次/分块 API 调用超时时间 (ms) */
+export const STAGE1_API_TIMEOUT_MS = 120_000;
 
-/** @deprecated 旧分块参数，保留兼容 */
-export const DEFAULT_CHUNK_SIZE = 5;
-/** @deprecated 旧并发参数 */
-export const DEFAULT_STAGE1_CONCURRENCY = 2;
+/** 阶段 2 单次 API 调用超时时间 (ms) */
+export const STAGE2_API_TIMEOUT_MS = 120_000;
+
+/** 阶段 3 单场景 API 调用超时时间 (ms) */
+export const STAGE3_API_TIMEOUT_MS = 90_000;
 
 // ============================== Beat 类型 ==============================
 

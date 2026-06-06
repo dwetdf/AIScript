@@ -16,6 +16,9 @@ interface ScriptStore {
   setScreenplay: (s: Screenplay) => void;
   clearScreenplay: () => void;
 
+  // Screenplay 元数据编辑
+  updateScreenplay: (patch: Partial<Screenplay>) => void;
+
   // Beat 级编辑 (F67, F68)
   updateBeat: (beatId: string, patch: Partial<Beat>) => void;
   insertBeat: (sceneGlobalNumber: number, index: number, beat: Beat) => void;
@@ -43,6 +46,13 @@ export const useScriptStore = create<ScriptStore>((set, get) => ({
   screenplay: null,
   setScreenplay: (screenplay) => set({ screenplay, isDirty: false }),
   clearScreenplay: () => set({ screenplay: null, isDirty: false }),
+
+  updateScreenplay: (patch) => {
+    set((s) => {
+      if (!s.screenplay) return s;
+      return { screenplay: { ...s.screenplay, ...patch }, isDirty: true };
+    });
+  },
 
   // ---------- Beat 操作 ----------
 

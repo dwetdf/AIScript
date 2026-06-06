@@ -13,7 +13,7 @@ import type { ParsedNovel } from '../parser';
 import type { NovelAnalysis, AdaptationPlan, Screenplay, AiConfig, ConversionConfig } from '../schema/types';
 import { analyzeNovel } from '../analyzer';
 import { planAdaptation } from '../planner';
-import { expandBeats } from '../converter';
+import { expandBeats, actGroupedExpandBeats } from '../converter';
 import { validate } from '../schema/validator';
 import {
   saveAnalysis, savePlan, saveScreenplay,
@@ -240,8 +240,11 @@ export async function startStage3Analysis(
 
   try {
     const stage3Instructions = config.stage3_custom_instructions || config.custom_instructions;
-    const screenplay = await expandBeats(plan, aiConfig, {
-      concurrency: concurrency ?? 3,
+    // 多Act时使用Act分组并行，单Act时退化为普通expandBeats
+    const actCount = plan.episode_plan.total_acts;
+    const expandFn = actCount > 1 ? actGroupedExpandBeats : expandBeats;
+    const screenplay = await expandFn(plan, aiConfig, {
+      concurrency: concurrency ?? 5,
       customInstructions: stage3Instructions,
       writingStyle: {
         dialogue_density: config.dialogue_density,
