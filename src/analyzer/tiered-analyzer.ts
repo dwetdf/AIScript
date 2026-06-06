@@ -7,7 +7,7 @@
 // ============================================================================
 
 import type { NovelAnalysis, AiConfig, CuratedPassage, ChapterSummary, PlotAnalysis, CharacterAnalysis, KeyEvent, CharacterRelation } from '../schema/types';
-import { SCHEMA_VERSIONS, DEFAULT_TIER1_CONCURRENCY, TIER1_MODEL_MAP } from '../shared/constants';
+import { SCHEMA_VERSIONS, DEFAULT_TIER1_CONCURRENCY } from '../shared/constants';
 import { generateCharacterId } from '../shared/id-generator';
 import { chatCompletionJson, batchChatCompletionJson } from '../api/client';
 import type { ParsedNovel, ChapterData } from '../parser';
@@ -106,8 +106,8 @@ export async function tieredAnalyze(
   const totalChapters = novel.chapters.length;
   const signal = options?.signal;
 
-  // 推导 Tier 1 使用的模型：优先用 aiConfig.tier1_model，否则自动推导
-  const tier1Model = aiConfig.tier1_model || deriveTier1Model(aiConfig.ai_model);
+  // Tier 1 使用的模型：aiConfig.tier1_model 为空则用默认模型
+  const tier1Model = aiConfig.tier1_model || aiConfig.ai_model;
   const tier1Config: AiConfig = { ...aiConfig, ai_model: tier1Model };
 
   // ====== Phase 1: 并行执行 Tier 1 + Tier 2 ======
@@ -315,23 +315,4 @@ function makeUniqueId(baseId: string, used: Set<string>): string {
   let i = 2;
   while (used.has(`${baseId}_${i}`)) i++;
   return `${baseId}_${i}`;
-}
-
-/** 从主模型推导 Tier 1 使用的 flash/快速模型 */
-function deriveTier1Model(mainModel: string): string {
-  // 直接映射
-  if (TIER1_MODEL_MAP[mainModel]) {
-    return TIER1_MODEL_MAP[mainModel];
-  }
-  // 模糊匹配：含 "pro" 或 "opus" → 尝试 chat/flash 变体
-  if (mainModel.includes('pro') || mainModel.includes('opus')) {
-    const chat = mainModel.replace('pro', 'chat').replace('opus', 'haiku');
-    if (chat !== mainModel) return chat;
-  }
-  // 含 "sonnet" → haiku
-  if (mainModel.includes('sonnet')) {
-    return mainModel.replace('sonnet', 'haiku');
-  }
-  // 兜底：使用原模型
-  return mainModel;
 }

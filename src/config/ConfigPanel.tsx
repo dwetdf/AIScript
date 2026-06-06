@@ -89,13 +89,13 @@ export const ConfigPanel: React.FC = () => {
       {/* 轻任务模型 */}
       <div style={{ marginBottom: 12 }}>
         <label style={labelStyle}>轻任务模型</label>
-        <div style={{ fontSize: 10, color: '#aaa', marginBottom: 2 }}>用于逐章分析等轻量并行任务。留空则自动从默认模型推导快速变体</div>
+        <div style={{ fontSize: 10, color: '#aaa', marginBottom: 2 }}>用于逐章分析等轻量并行任务。留空则使用默认模型</div>
         <select
           value={aiConfig.tier1_model ?? ''}
           onChange={(e) => handleTier1ModelChange(e.target.value)}
           style={selectStyle}
         >
-          <option value="">自动推导（推荐）</option>
+          <option value="">使用默认模型</option>
           {(AI_MODELS[aiConfig.ai_provider] || []).map((m) => (
             <option key={m} value={m}>{m}</option>
           ))}

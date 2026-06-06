@@ -70,15 +70,15 @@ export const AiSetupPanel: React.FC<{ compact?: boolean }> = ({ compact = false 
       </Section>
 
       {/* ========= 轻任务模型 ========= */}
-      <Section title="轻任务模型" hint="用于阶段 1 逐章分析等轻量并行任务。不选则自动从默认模型推导快速变体（如 deepseek-v4-pro → deepseek-chat）">
+      <Section title="轻任务模型" hint="用于阶段 1 逐章分析等轻量并行任务。留空则使用默认模型">
         {aiConfig.ai_provider === 'custom' ? (
           <input
-            style={inputStyle} placeholder="留空则自动推导，或手动输入模型 ID"
+            style={inputStyle} placeholder="留空则使用默认模型"
             value={aiConfig.tier1_model ?? ''} onChange={(e) => handleTier1Model(e.target.value)}
           />
         ) : (
           <Select value={aiConfig.tier1_model ?? ''} onChange={handleTier1Model}
-            options={[['', '自动推导（推荐）'], ...(AI_MODELS[aiConfig.ai_provider] ?? []).map((m): [string, string] => [m, m])]} />
+            options={[['', '使用默认模型'], ...(AI_MODELS[aiConfig.ai_provider] ?? []).map((m): [string, string] => [m, m])]} />
         )}
       </Section>
 

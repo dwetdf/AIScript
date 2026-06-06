@@ -161,14 +161,14 @@ const AiEngineTab: React.FC = () => {
         <Label>轻任务模型</Label>
         {aiConfig.ai_provider === 'custom' ? (
           <input value={aiConfig.tier1_model ?? ''} onChange={(e) => setAiConfig({ ...aiConfig, tier1_model: e.target.value || undefined })}
-            style={inputStyle} placeholder="留空自动推导，或手动输入模型 ID" />
+            style={inputStyle} placeholder="留空则使用默认模型" />
         ) : (
           <select value={aiConfig.tier1_model ?? ''} onChange={(e) => setAiConfig({ ...aiConfig, tier1_model: e.target.value || undefined })} style={selectStyle}>
-            <option value="">自动推导（推荐）</option>
+            <option value="">使用默认模型</option>
             {(AI_MODELS[aiConfig.ai_provider] ?? []).map((m) => <option key={m} value={m}>{m}</option>)}
           </select>
         )}
-        <div style={{ gridColumn: '2', fontSize: 10, color: '#aaa', marginTop: -8 }}>用于逐章分析等轻量并行任务。留空则自动从默认模型推导快速变体</div>
+        <div style={{ gridColumn: '2', fontSize: 10, color: '#aaa', marginTop: -8 }}>用于逐章分析等轻量并行任务。留空则使用默认模型</div>
 
         <Label>API Key</Label>
         <input type="password" value={apiKeys[aiConfig.ai_provider] ?? ''}
