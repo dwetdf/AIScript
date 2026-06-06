@@ -8,3 +8,4 @@ export { usePlanStore } from './planStore';
 export { useScriptStore } from './scriptStore';
 export { useEditorStore } from './editorStore';
 export { useProjectStore } from './projectStore';
+export { useTaskStore } from '../background/taskStore';

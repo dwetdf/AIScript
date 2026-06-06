@@ -1,17 +1,14 @@
 // ============================================================================
 // ImportPage — 小说导入页面
-// 拖拽/选择文件 → 解析 → 阶段1 分析
-// v0.4.0: 连接分块进度回调 + 取消按钮
+// 拖拽/选择文件 → 解析 → 后台阶段1 分析
+// v0.7.0: 阶段 1 分析后台化 — 解析后可自由切换项目/阶段
 // ============================================================================
 
-import React, { useState, useCallback, useRef } from 'react';
-import { useProjectStore, useAnalysisStore, useConfigStore } from '../store';
+import React, { useState, useCallback } from 'react';
+import { useProjectStore, useConfigStore } from '../store';
 import { parseNovel } from '../parser';
-import { analyzeNovel } from '../analyzer';
-import { validate } from '../schema/validator';
-import { saveAnalysis, saveProjectMeta as saveMeta } from '../api/endpoints';
-import { LoadingStage } from '../components/LoadingStage';
-import type { ParsedNovel } from '../parser';
+import { startStage1Analysis } from '../background/taskManager';
+import { saveProjectMeta } from '../api/endpoints';
 import type { AppSection } from '../components/AppShell';
 
 interface Props {
@@ -20,54 +17,28 @@ interface Props {
 
 export const ImportPage: React.FC<Props> = ({ onSectionChange }) => {
   const [error, setError] = useState<string | null>(null);
-  const [loadingMsg, setLoadingMsg] = useState('');
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [analyzeProgress, setAnalyzeProgress] = useState<{
-    current: number; total: number; label: string;
-  } | null>(null);
-
-  const abortRef = useRef<AbortController | null>(null);
+  const [parsing, setParsing] = useState(false);
+  const [parsingMsg, setParsingMsg] = useState('');
 
   const aiConfig = useConfigStore((s) => s.aiConfig);
   const addProject = useProjectStore((s) => s.addProject);
   const setActiveProject = useProjectStore((s) => s.setActiveProject);
 
-  const handleCancel = useCallback(() => {
-    abortRef.current?.abort();
-    setIsProcessing(false);
-    setLoadingMsg('');
-    setAnalyzeProgress(null);
-  }, []);
-
   const handleImport = useCallback(async (file: File) => {
     setError(null);
-    setIsProcessing(true);
-    setLoadingMsg('正在解析小说文件...');
+    setParsing(true);
+    setParsingMsg('正在解析小说文件...');
     await new Promise((r) => setTimeout(r, 0));
 
-    // 创建 AbortController
-    const controller = new AbortController();
-    abortRef.current = controller;
-
     try {
-      const novel: ParsedNovel = await parseNovel(file);
-      setLoadingMsg(`已解析 ${novel.chapters.length} 个章节，开始 AI 分析...`);
-      await new Promise((r) => setTimeout(r, 0));
+      // 文件解析（同步等待，通常很快）
+      const novel = await parseNovel(file);
 
+      // 立即创建项目（阶段标记为 imported，后台分析完成后再更新）
       const projectId = `proj_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-      const novelAnalysis = await analyzeNovel(novel, aiConfig, {
-        onProgress: (chunk, totalChunks, label) => {
-          setAnalyzeProgress({ current: chunk, total: totalChunks, label });
-          setLoadingMsg(`正在分析第 ${chunk}/${totalChunks} 块...`);
-        },
-        signal: controller.signal,
-      });
-      const vr = validate(novelAnalysis, 'novel-analysis');
-      if (!vr.valid) console.warn('NovelAnalysis 校验警告:', vr.errors);
 
-      // 先持久化到 localStorage，再由 App Effect 2 加载到内存 store
-      saveAnalysis(projectId, novelAnalysis);
-      saveMeta({
+      // 先持久化基础元数据
+      saveProjectMeta({
         id: projectId,
         title: novel.title,
         author: novel.author || '未知',
@@ -76,49 +47,42 @@ export const ImportPage: React.FC<Props> = ({ onSectionChange }) => {
         updatedAt: new Date().toISOString(),
       });
 
+      // 添加到项目列表
       addProject({
         id: projectId,
         title: novel.title,
         author: novel.author || '未知',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-        phase: 'analyzed',
+        phase: 'imported',
       });
 
-      // 切换到新导入的项目，触发数据加载
+      // 切换到新项目
       setActiveProject(projectId);
 
-      setIsProcessing(false);
-      setLoadingMsg('');
-      setAnalyzeProgress(null);
-      abortRef.current = null;
+      setParsing(false);
+      setParsingMsg('');
+
+      // 启动后台阶段 1 分析
+      startStage1Analysis(projectId, novel, novel.title, novel.author || '未知', aiConfig);
+
+      // 导航到分析页面（会显示进度条）
       onSectionChange('analysis_overview');
     } catch (e) {
-      if ((e as Error).name === 'AbortError') {
-        // 用户取消，不显示错误
-        setIsProcessing(false);
-        setLoadingMsg('');
-        setAnalyzeProgress(null);
-        abortRef.current = null;
-        return;
-      }
       setError((e as Error).message);
-      setIsProcessing(false);
-      setLoadingMsg('');
-      setAnalyzeProgress(null);
-      abortRef.current = null;
+      setParsing(false);
+      setParsingMsg('');
     }
   }, [aiConfig, addProject, setActiveProject, onSectionChange]);
 
-  if (isProcessing) {
+  // ---- 解析中（全屏 Loading — 解析很快，不需要后台化） ----
+  if (parsing) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-        <LoadingStage
-          stage="analyzing"
-          message={loadingMsg}
-          progress={analyzeProgress || undefined}
-          onCancel={handleCancel}
-        />
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: 48, marginBottom: 16 }}>📖</div>
+          <p style={{ color: '#666' }}>{parsingMsg}</p>
+        </div>
       </div>
     );
   }

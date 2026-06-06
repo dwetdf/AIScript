@@ -4,7 +4,7 @@
 // ============================================================================
 
 import React, { useState, useRef, useEffect } from 'react';
-import { useProjectStore } from '../store';
+import { useProjectStore, useTaskStore } from '../store';
 import { type AppSection } from './AppShell';
 
 interface Props {
@@ -27,6 +27,8 @@ export const ProjectSidebar: React.FC<Props> = ({
   const setActiveProject = useProjectStore((s) => s.setActiveProject);
   const removeProject = useProjectStore((s) => s.removeProject);
   const renameProject = useProjectStore((s) => s.renameProject);
+  const tasks = useTaskStore((s) => s.tasks);
+  const dismissNotification = useTaskStore((s) => s.dismissNotification);
 
   // 折叠状态：默认全部折叠，读取 localStorage 记忆
   // （在 Set 中 = 已折叠，不在 Set 中 = 已展开）
@@ -262,12 +264,25 @@ export const ProjectSidebar: React.FC<Props> = ({
 
                   const active = isActive && isPhaseActive(pl.phase);
 
+                  // 任务状态
+                  const stage: 'stage1' | 'stage2' | 'stage3' =
+                    pl.phase === 'analysis_overview' ? 'stage1' :
+                    pl.phase === 'plan_overview' ? 'stage2' : 'stage3';
+                  const taskKey = `${proj.id}__${stage}`;
+                  const task = tasks[taskKey];
+                  const isRunning = task?.status === 'running';
+                  const hasNotification = task?.status === 'completed' && !task.notificationShown;
+
                   return (
                     <div
                       key={pl.phase}
                       onClick={() => {
                         if (!enabled) return;
                         handleProjectClick(proj.id);
+                        // 进入阶段页面时自动 dismiss 通知
+                        if (hasNotification) {
+                          dismissNotification(proj.id, stage);
+                        }
                         onNavigate(pl.phase);
                       }}
                       style={{
@@ -283,7 +298,28 @@ export const ProjectSidebar: React.FC<Props> = ({
                     >
                       <span style={{ marginRight: 6 }}>{pl.icon}</span>
                       {pl.label}
-                      {enabled && active && (
+                      {/* 运行中指示器 */}
+                      {isRunning && (
+                        <span style={{ marginLeft: 4, fontSize: 10, color: '#ff9800' }} title="分析进行中">⏳</span>
+                      )}
+                      {/* 完成通知标记 */}
+                      {hasNotification && (
+                        <span style={{
+                          marginLeft: 'auto',
+                          fontSize: 10,
+                          color: '#fff',
+                          background: '#f44336',
+                          borderRadius: '50%',
+                          width: 16,
+                          height: 16,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }} title="分析完成">
+                          1
+                        </span>
+                      )}
+                      {enabled && active && !isRunning && !hasNotification && (
                         <span style={{ marginLeft: 'auto', fontSize: 10, color: '#4caf50' }}>●</span>
                       )}
                     </div>

@@ -1,11 +1,13 @@
 // ============================================================================
 // AnalysisPage — 阶段1 小说分析全页
 // sub-tabs: 概览 / 主题 / 人物 / 剧情 / 章节
-// v0.4.0: 按 sub-tab 条件渲染不同区块
+// v0.7.0: 后台分析 — 支持显示后台任务进度，自动加载完成结果
 // ============================================================================
 
-import React from 'react';
-import { useAnalysisStore } from '../store';
+import React, { useEffect } from 'react';
+import { useAnalysisStore, useProjectStore, useTaskStore } from '../store';
+import { loadAnalysis } from '../api/endpoints';
+import { cancelTask } from '../background/taskManager';
 import { StatBar, ThemesSection, CharactersSection, ConflictSection, EventsTimeline, ChaptersSection } from './AnalysisPreview';
 import { exportAnalysisPdf, exportAnalysisHtml } from '../renderer/analysisExport';
 import { copyToClipboard } from '../shared/download';
@@ -26,8 +28,74 @@ const TABS: Array<{ id: AppSection; label: string; icon: string }> = [
 
 export const AnalysisPage: React.FC<Props> = ({ section, onSectionChange }) => {
   const analysis = useAnalysisStore((s) => s.analysis);
+  const setAnalysis = useAnalysisStore((s) => s.setAnalysis);
+  const activeProjectId = useProjectStore((s) => s.activeProjectId);
+  const task = useTaskStore((s) => s.getTask(activeProjectId || '', 'stage1'));
+  const dismissNotification = useTaskStore((s) => s.dismissNotification);
   const [copied, setCopied] = React.useState(false);
 
+  // 页面挂载时清除该阶段的完成通知
+  useEffect(() => {
+    if (activeProjectId && task?.status === 'completed') {
+      dismissNotification(activeProjectId, 'stage1');
+    }
+  }, [activeProjectId, task?.status, dismissNotification]);
+
+  // 任务刚完成时：自动从 localStorage 加载 analysis 到内存
+  useEffect(() => {
+    if (activeProjectId && task?.status === 'completed' && !analysis) {
+      const stored = loadAnalysis(activeProjectId);
+      if (stored) setAnalysis(stored);
+    }
+  }, [activeProjectId, task?.status, analysis, setAnalysis]);
+
+  // ---- 后台任务运行中 ----
+  if (task && task.status === 'running' && !analysis) {
+    return (
+      <div style={{ textAlign: 'center', padding: 80, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+        <div style={{ fontSize: 48, marginBottom: 16 }}>📊</div>
+        <h3 style={{ marginBottom: 8 }}>阶段 1：AI 正在分析小说</h3>
+        <p style={{ color: '#888', marginBottom: 20 }}>{task.message}</p>
+        {task.progress && (
+          <div style={{ width: 360 }}>
+            <div style={{ fontSize: 12, color: '#999', marginBottom: 4 }}>
+              {task.progress.current} / {task.progress.total}
+              {task.progress.label ? ` — ${task.progress.label}` : ''}
+            </div>
+            <div style={{
+              height: 6, background: '#e0e0e0', borderRadius: 3, overflow: 'hidden',
+            }}>
+              <div style={{
+                height: '100%',
+                width: `${Math.round((task.progress.current / (task.progress.total || 1)) * 100)}%`,
+                background: '#1976d2', borderRadius: 3,
+                transition: 'width 0.3s ease',
+              }} />
+            </div>
+          </div>
+        )}
+        <button
+          onClick={() => activeProjectId && cancelTask(activeProjectId, 'stage1')}
+          style={{ marginTop: 20, ...cancelBtnStyle }}
+        >
+          取消分析
+        </button>
+      </div>
+    );
+  }
+
+  // ---- 后台任务失败 ----
+  if (task && task.status === 'failed' && !analysis) {
+    return (
+      <div style={{ textAlign: 'center', padding: 80 }}>
+        <div style={{ fontSize: 48, marginBottom: 16 }}>❌</div>
+        <p style={{ color: '#c62828' }}>分析失败：{task.error || '未知错误'}</p>
+        <p style={{ color: '#888' }}>请返回导入页面重新导入小说</p>
+      </div>
+    );
+  }
+
+  // ---- 无分析数据且无后台任务 ----
   if (!analysis) {
     return (
       <div style={{ textAlign: 'center', padding: 80, color: '#888' }}>
@@ -37,6 +105,7 @@ export const AnalysisPage: React.FC<Props> = ({ section, onSectionChange }) => {
     );
   }
 
+  // ---- 有分析数据：正常显示 ----
   const handleCopy = async () => {
     const ok = await copyToClipboard(JSON.stringify(analysis, null, 2));
     if (ok) { setCopied(true); setTimeout(() => setCopied(false), 2000); }
@@ -45,7 +114,6 @@ export const AnalysisPage: React.FC<Props> = ({ section, onSectionChange }) => {
   const handlePdf = () => exportAnalysisPdf();
   const handleHtml = () => exportAnalysisHtml(analysis, analysis.source_info.title);
 
-  // 根据 sub-tab 渲染对应内容
   const renderContent = () => {
     switch (section) {
       case 'analysis_overview':
@@ -186,4 +254,9 @@ const copyBtn: React.CSSProperties = {
   cursor: 'pointer',
   fontSize: 11,
   color: '#888',
+};
+
+const cancelBtnStyle: React.CSSProperties = {
+  padding: '8px 20px', border: '1px solid #ccc', borderRadius: 6,
+  background: '#fff', cursor: 'pointer', fontSize: 13, color: '#888',
 };
