@@ -54,24 +54,48 @@ export const PlanStatBar: React.FC<{ plan: AdaptationPlan }> = ({ plan }) => {
 // ============================== 改编策略区块 ==============================
 
 export const StrategySection: React.FC<{ plan: AdaptationPlan; span?: number }> = ({ plan, span = 2 }) => {
+  const planStore = usePlanStore();
   const strategy = plan.adaptation_strategy;
+
+  // Directly mutate the plan object (since planStore.plan is the same reference in memory)
+  const updateStrategy = (patch: Record<string, unknown>) => {
+    const updated = { ...strategy, ...patch };
+    // Update the entire strategy via plan store
+    if (planStore.plan) {
+      usePlanStore.setState({
+        plan: { ...planStore.plan, adaptation_strategy: updated }
+      });
+    }
+  };
   return (
     <>
       <SectionCard icon="🎯" title="改编策略" span={span}>
-        <InfoRow label="目标媒介" value={strategy.target_medium} />
-        <InfoRow label="原著基调" value={strategy.tone_adaptation.source_tone} />
-        <InfoRow label="剧本基调" value={<strong>{strategy.tone_adaptation.target_tone}</strong>} />
-        <div style={{ marginTop: 8, fontSize: 13, color: '#555', lineHeight: 1.5 }}>{strategy.tone_adaptation.notes}</div>
+        <InfoRow
+          label="目标媒介"
+          value={<EditableField value={strategy.target_medium} placeholder="film" onChange={(v) => updateStrategy({ target_medium: v })} style={{ fontWeight: 600 }} />}
+        />
+        <InfoRow
+          label="原著基调"
+          value={<EditableField value={strategy.tone_adaptation.source_tone} placeholder="原标题基调" onChange={(v) => updateStrategy({ tone_adaptation: { ...strategy.tone_adaptation, source_tone: v } })} />}
+        />
+        <InfoRow
+          label="剧本基调"
+          value={<EditableField value={strategy.tone_adaptation.target_tone} placeholder="目标基调" onChange={(v) => updateStrategy({ tone_adaptation: { ...strategy.tone_adaptation, target_tone: v } })} style={{ fontWeight: 600 }} />}
+        />
+        <div style={{ marginTop: 8, fontSize: 13, color: '#555', lineHeight: 1.5 }}>
+          <EditableField isTextarea value={strategy.tone_adaptation.notes} placeholder="基调说明（双击编辑）" onChange={(v) => updateStrategy({ tone_adaptation: { ...strategy.tone_adaptation, notes: v } })} style={{ width: '100%' }} />
+        </div>
       </SectionCard>
 
-      {(strategy.externalization_strategy || (strategy.compression_rules && strategy.compression_rules.length > 0)) && (
+      {(strategy.externalization_strategy !== undefined || (strategy.compression_rules && strategy.compression_rules.length > 0)) && (
         <SectionCard icon="🔄" title="外化 & 压缩" span={span}>
-          {strategy.externalization_strategy && (
-            <div style={{ marginBottom: 12 }}>
-              <div style={{ fontWeight: 600, fontSize: 12, color: '#666', marginBottom: 4 }}>外化策略</div>
-              <div style={{ fontSize: 12, color: '#555', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{strategy.externalization_strategy}</div>
-            </div>
-          )}
+          <EditableField
+            isTextarea
+            value={strategy.externalization_strategy || ''}
+            placeholder="外化策略（双击编辑）"
+            onChange={(v) => updateStrategy({ externalization_strategy: v || undefined })}
+            style={{ width: '100%', fontSize: 12, color: '#555', lineHeight: 1.6, marginBottom: 12 }}
+          />
           {strategy.compression_rules && strategy.compression_rules.length > 0 && (
             <div>
               <div style={{ fontWeight: 600, fontSize: 12, color: '#666', marginBottom: 4 }}>压缩规则</div>
