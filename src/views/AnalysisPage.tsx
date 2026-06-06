@@ -55,28 +55,72 @@ export const AnalysisPage: React.FC<Props> = ({ section, onSectionChange }) => {
       <div style={{ textAlign: 'center', padding: 80, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
         <div style={{ fontSize: 48, marginBottom: 16 }}>📊</div>
         <h3 style={{ marginBottom: 8 }}>阶段 1：AI 正在分析小说</h3>
-        <p style={{ color: '#888', marginBottom: 20 }}>{task.message}</p>
+        <p style={{ color: '#888', marginBottom: 24 }}>{task.message}</p>
         {task.progress && (
-          <div style={{ width: 360 }}>
-            <div style={{ fontSize: 12, color: '#999', marginBottom: 4 }}>
-              {task.progress.current} / {task.progress.total}
-              {task.progress.label ? ` — ${task.progress.label}` : ''}
-            </div>
-            <div style={{
-              height: 6, background: '#e0e0e0', borderRadius: 3, overflow: 'hidden',
-            }}>
-              <div style={{
-                height: '100%',
-                width: `${Math.round((task.progress.current / (task.progress.total || 1)) * 100)}%`,
-                background: '#1976d2', borderRadius: 3,
-                transition: 'width 0.3s ease',
-              }} />
-            </div>
+          <div style={{ width: 400 }}>
+            {/* Tier 1 章节进度 */}
+            {task.progress.tier1Total != null && (
+              <>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                  <span style={{ fontSize: 12, color: '#555', fontWeight: 500 }}>
+                    📖 逐章分析
+                  </span>
+                  <span style={{ fontSize: 12, color: '#888' }}>
+                    {task.progress.tier1Done} / {task.progress.tier1Total}
+                    {task.progress.tier1Done === task.progress.tier1Total ? ' ✅' : ''}
+                  </span>
+                </div>
+                <div style={{
+                  height: 6, background: '#e0e0e0', borderRadius: 3, overflow: 'hidden', marginBottom: 16,
+                }}>
+                  <div style={{
+                    height: '100%',
+                    width: `${Math.round(((task.progress.tier1Done ?? 0) / (task.progress.tier1Total || 1)) * 100)}%`,
+                    background: task.progress.tier1Done === task.progress.tier1Total ? '#4caf50' : '#1976d2',
+                    borderRadius: 3, transition: 'width 0.3s ease',
+                  }} />
+                </div>
+              </>
+            )}
+
+            {/* Tier 2 全局分析 */}
+            {task.progress.tier2Running && (
+              <>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                  <span style={{ fontSize: 12, color: '#555', fontWeight: 500 }}>
+                    🌐 全局主题与人物关系提炼
+                  </span>
+                  <span style={{ fontSize: 12, color: '#e65100' }}>
+                    <Spinner /> 进行中...
+                  </span>
+                </div>
+                <div style={{
+                  height: 6, background: '#e0e0e0', borderRadius: 3, overflow: 'hidden',
+                }}>
+                  <div style={{
+                    height: '100%',
+                    width: '100%',
+                    background: 'linear-gradient(90deg, #ff9800, #ffc107, #ff9800)',
+                    borderRadius: 3,
+                    animation: 'tier2Pulse 1.5s ease-in-out infinite',
+                  }} />
+                </div>
+                <style>{`
+                  @keyframes tier2Pulse {
+                    0%, 100% { opacity: 0.4; }
+                    50% { opacity: 1; }
+                  }
+                  @keyframes spin {
+                    to { transform: rotate(360deg); }
+                  }
+                `}</style>
+              </>
+            )}
           </div>
         )}
         <button
           onClick={() => activeProjectId && cancelTask(activeProjectId, 'stage1')}
-          style={{ marginTop: 20, ...cancelBtnStyle }}
+          style={{ marginTop: 24, ...cancelBtnStyle }}
         >
           取消分析
         </button>
@@ -255,6 +299,14 @@ const copyBtn: React.CSSProperties = {
   fontSize: 11,
   color: '#888',
 };
+
+const Spinner: React.FC = () => (
+  <span style={{
+    display: 'inline-block', width: 10, height: 10, borderRadius: '50%',
+    border: '2px solid #e65100', borderTopColor: 'transparent',
+    animation: 'spin 0.6s linear infinite', verticalAlign: 'middle', marginRight: 4,
+  }} />
+);
 
 const cancelBtnStyle: React.CSSProperties = {
   padding: '8px 20px', border: '1px solid #ccc', borderRadius: 6,

@@ -61,27 +61,39 @@ export async function startStage1Analysis(
   const controller = new AbortController();
   abortControllers.set(taskKey(projectId, stage), controller);
 
+  const totalChapters = novel.chapters.length;
+
   getStore()._setTask({
     projectId,
     stage,
     status: 'running',
-    message: 'AI 正在逐章分析 + 提炼全局主题...',
+    message: '准备分析小说...',
     notificationShown: false,
     startedAt: new Date().toISOString(),
+    progress: { current: 0, total: totalChapters, tier1Done: 0, tier1Total: totalChapters, tier2Running: true },
   });
 
   try {
     const analysis = await analyzeNovel(novel, aiConfig, {
       onProgress: (chunk, totalChunks, label) => {
-        const isGlobalPhase = label.includes('提炼全局') || label.includes('全局');
+        const prevTask = getStore().getTask(projectId, stage);
+        const prevProgress = prevTask?.progress;
+        const allChaptersDone = chunk >= totalChunks;
         getStore()._setTask({
           projectId, stage, status: 'running',
-          message: isGlobalPhase
-            ? `正在提炼全局主题与人物关系...`
-            : `正在逐章分析 (${chunk}/${totalChunks})`,
-          progress: { current: chunk, total: totalChunks, label },
+          message: allChaptersDone
+            ? `逐章分析完成 (${chunk}/${totalChunks})，正在提炼全局主题与人物关系...`
+            : `逐章分析 (${chunk}/${totalChunks})`,
+          progress: {
+            current: chunk,
+            total: totalChunks,
+            label,
+            tier1Done: chunk,
+            tier1Total: totalChapters,
+            tier2Running: true,
+          },
           notificationShown: false,
-          startedAt: getStore().getTask(projectId, stage)?.startedAt || new Date().toISOString(),
+          startedAt: prevTask?.startedAt || new Date().toISOString(),
         });
       },
       signal: controller.signal,

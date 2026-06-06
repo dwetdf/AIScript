@@ -17,6 +17,12 @@ export interface BgTaskProgress {
   currentScenes?: string[];
   /** 当前步骤标签 */
   label?: string;
+  /** 阶段 1 双层分析：Tier1 已完成的章节数 */
+  tier1Done?: number;
+  /** 阶段 1 双层分析：Tier1 总章节数 */
+  tier1Total?: number;
+  /** 阶段 1 双层分析：Tier2 全局分析是否仍在运行 */
+  tier2Running?: boolean;
 }
 
 export interface BgTask {
