@@ -179,6 +179,9 @@ export const STAGE_DIRECTION_LABELS: Record<string, string> = {
 /** Beat 展开时 AI API 默认并发数 */
 export const DEFAULT_BEAT_EXPANSION_CONCURRENCY = 5;
 
+/** 每个 Act 内的场景并发数（用于 actGroupedExpandBeats） */
+export const DEFAULT_PER_ACT_CONCURRENCY = 3;
+
 /** Beat 展开最大并发数（防止触发 API 限流） */
 export const MAX_BEAT_EXPANSION_CONCURRENCY = 10;
 
