@@ -4,7 +4,8 @@
 // ============================================================================
 
 import React from 'react';
-import { useScriptStore, useEditorStore } from '../store';
+import { useScriptStore, useEditorStore, useProjectStore } from '../store';
+import { saveScreenplay } from '../api/endpoints';
 import { ScriptView } from './views/ScriptView';
 import { OutlineView } from './views/OutlineView';
 import { PdfExporter } from '../renderer/pdf';
@@ -13,9 +14,11 @@ import './styles/editor-theme.css';
 export const EditorLayout: React.FC = () => {
   const screenplay = useScriptStore((s) => s.screenplay);
   const isDirty = useScriptStore((s) => s.isDirty);
+  const markClean = useScriptStore((s) => s.markClean);
   const updateScreenplay = useScriptStore((s) => s.updateScreenplay);
   const viewMode = useEditorStore((s) => s.viewMode);
   const setViewMode = useEditorStore((s) => s.setViewMode);
+  const activeProjectId = useProjectStore((s) => s.activeProjectId);
   const [editingTitle, setEditingTitle] = React.useState(false);
   const [titleDraft, setTitleDraft] = React.useState(screenplay?.metadata.title || '');
   const titleInputRef = React.useRef<HTMLInputElement>(null);
@@ -26,6 +29,24 @@ export const EditorLayout: React.FC = () => {
       titleInputRef.current.select();
     }
   }, [editingTitle]);
+
+  const handleSave = () => {
+    if (!screenplay || !activeProjectId) return;
+    saveScreenplay(activeProjectId, screenplay);
+    markClean();
+  };
+
+  // Ctrl+S 快捷键
+  React.useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        handleSave();
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [screenplay, activeProjectId]);
 
   const commitTitle = () => {
     const trimmed = titleDraft.trim();
@@ -82,8 +103,20 @@ export const EditorLayout: React.FC = () => {
             </h2>
           )}
           <span style={{ fontSize: 12, color: isDirty ? '#e65100' : '#4caf50' }}>
-            {isDirty ? '● 未保存' : '已保存'}
+            {isDirty ? '● 未保存' : '✓ 已保存'}
           </span>
+          <button
+            onClick={handleSave}
+            style={{
+              ...toolbarBtnStyle,
+              background: isDirty ? '#1976d2' : '#fff',
+              color: isDirty ? '#fff' : '#999',
+              borderColor: isDirty ? '#1976d2' : '#ccc',
+            }}
+            title="保存到本地 (Ctrl+S)"
+          >
+            {isDirty ? '💾 保存' : '✓ 已同步'}
+          </button>
           <button
             onClick={() => setViewMode(viewMode === 'source_compare' ? 'edit' : 'source_compare')}
             style={toolbarBtnStyle}
