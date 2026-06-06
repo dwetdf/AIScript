@@ -47,10 +47,11 @@ export const DEFAULT_AI_CONFIG: AiConfig = {
 export const DEFAULT_CONVERSION_CONFIG: ConversionConfig = {
   dialogue_density: 'balanced',
   action_detail_level: 'standard',
-  stage_direction_style: 'descriptive',
-  target_medium: 'tv_series',
-  genre: [],
-  tone: 'serious',
+  stage_direction_style: 'concise',
+  target_medium: 'film',
+  target_duration: 'standard',
+  tone: 'mixed',
+  adaptation_fidelity: 'balanced',
 };
 
 // ============================== 媒介参数 ==============================
@@ -69,6 +70,20 @@ export const MEDIUM_DEFAULT_DURATIONS: Record<string, number> = {
   web_series: 15,
   stage_play: 90,
   audio_drama: 30,
+};
+
+// ============================== 目标篇幅 ==============================
+
+export const DURATION_OPTIONS = [
+  'short', 'mid', 'standard', 'feature', 'extended',
+] as const;
+
+export const DURATION_LABELS: Record<string, string> = {
+  short: '短篇（约20-30分钟）',
+  mid: '中篇（约45-60分钟）',
+  standard: '标准（约90分钟）',
+  feature: '长片（约120分钟）',
+  extended: '超长（约150分钟以上）',
 };
 
 // ============================== 类型筛选 ==============================
@@ -111,7 +126,20 @@ export const TONE_LABELS: Record<string, string> = {
   lighthearted: '轻松',
   epic: '史诗',
   intimate: '亲密',
-  mixed: '混合',
+  mixed: '标准',
+};
+
+// ============================== 改编忠实度 ==============================
+
+export const FIDELITY_OPTIONS = [
+  'faithful', 'balanced', 'bold', 'inspired',
+] as const;
+
+export const FIDELITY_LABELS: Record<string, string> = {
+  faithful: '忠实改编 — 保留原著结构和人物，仅做影视化必要调整',
+  balanced: '适度重构 — 保留核心情节和人物，合并支线、调整节奏',
+  bold: '大幅重构 — 以原著为核心素材重新组织叙事结构',
+  inspired: '只取创意 — 仅保留世界观/核心设定，剧情和人物大幅原创',
 };
 
 // ============================== 分级选项 ==============================
