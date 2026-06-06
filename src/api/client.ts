@@ -232,35 +232,67 @@ export async function batchChatCompletionJson<T>(
   signal?: AbortSignal
 ): Promise<(T | null)[]> {
   const results: (T | null)[] = new Array(tasks.length);
+  let nextIndex = 0;
+  let runningCount = 0;
 
-  for (let i = 0; i < tasks.length; i += concurrency) {
-    // 每批开始前检查中断信号
+  const runTask = async (index: number) => {
+    if (signal?.aborted) return;
+    const task = tasks[index];
+    try {
+      const parsed = await chatCompletionJson<T>(
+        task.messages,
+        task.config,
+        { ...task.options, signal }
+      );
+      results[index] = parsed;
+      onItemComplete?.(index, parsed);
+    } catch (e) {
+      const errMsg = (e as Error).message;
+      results[index] = null;
+      onItemComplete?.(index, null, errMsg);
+      console.error(`[batchChatCompletionJson] 任务 ${index} 失败:`, errMsg);
+    } finally {
+      runningCount--;
+    }
+  };
+
+  // Semaphore pool: launch up to `concurrency` tasks at once;
+  // as soon as one finishes, the next starts immediately.
+  const promises: Promise<void>[] = [];
+  while (nextIndex < tasks.length) {
     if (signal?.aborted) break;
 
-    const batch = tasks.slice(i, i + concurrency);
-    const batchResults = await Promise.all(
-      batch.map(async (task, batchOffset) => {
-        const globalIndex = i + batchOffset;
-        try {
-          const parsed = await chatCompletionJson<T>(
-            task.messages,
-            task.config,
-            { ...task.options, signal }
-          );
-          results[globalIndex] = parsed;
-          onItemComplete?.(globalIndex, parsed);
-          return { index: globalIndex, ok: true as const };
-        } catch (e) {
-          const errMsg = (e as Error).message;
-          results[globalIndex] = null;
-          onItemComplete?.(globalIndex, null, errMsg);
-          console.error(`[batchChatCompletionJson] 任务 ${globalIndex} 失败:`, errMsg);
-          return { index: globalIndex, ok: false as const };
-        }
-      })
-    );
-    // 批量结果仅用于校验——实际数据已写入 results[globalIndex]
-    void batchResults;
+    // Fill pool
+    while (runningCount < concurrency && nextIndex < tasks.length && !signal?.aborted) {
+      runningCount++;
+      promises.push(runTask(nextIndex));
+      nextIndex++;
+    }
+
+    if (promises.length > 0) {
+      // Wait for at least one promise to settle, then continue
+      await Promise.race(
+        promises.map((p, i) => p.then(() => i))
+      );
+      // Remove settled promises so we don't re-race them
+      const remaining: Promise<void>[] = [];
+      for (const p of promises) {
+        const s = await Promise.race([
+          p.then(() => 'done' as const),
+          new Promise<'pending'>((r) => setTimeout(() => r('pending'), 0)),
+        ]);
+        if (s === 'pending') remaining.push(p);
+      }
+      if (remaining.length === promises.length) {
+        // All still running — await the first
+        await Promise.race(promises);
+      }
+    }
+  }
+
+  // Wait for remaining in-flight tasks
+  if (promises.length > 0) {
+    await Promise.allSettled(promises);
   }
 
   return results;
