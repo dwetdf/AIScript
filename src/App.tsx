@@ -180,9 +180,6 @@ export const App: React.FC = () => {
           <ProjectSidebar
             currentSection={section}
             onNavigate={setSection}
-            onExport={handleExport}
-            onImport={handleImportClick}
-            hasProjectData={hasData}
           />
         }
         processing={isProcessing ? { step: processingStep } : undefined}

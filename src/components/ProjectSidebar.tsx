@@ -10,9 +10,6 @@ import { type AppSection } from './AppShell';
 interface Props {
   currentSection: AppSection;
   onNavigate: (section: AppSection) => void;
-  onExport?: () => void;
-  onImport?: () => void;
-  hasProjectData?: boolean;
 }
 
 const PHASE_LABELS: Array<{ phase: AppSection; icon: string; label: string }> = [
@@ -24,9 +21,6 @@ const PHASE_LABELS: Array<{ phase: AppSection; icon: string; label: string }> = 
 export const ProjectSidebar: React.FC<Props> = ({
   currentSection,
   onNavigate,
-  onExport,
-  onImport,
-  hasProjectData,
 }) => {
   const projects = useProjectStore((s) => s.projects);
   const activeProjectId = useProjectStore((s) => s.activeProjectId);
@@ -342,34 +336,6 @@ export const ProjectSidebar: React.FC<Props> = ({
         <span style={{ marginRight: 6 }}>＋</span>
         <span style={{ fontSize: 13 }}>导入新小说</span>
       </div>
-
-      {/* 设置 */}
-      <div
-        onClick={() => onNavigate('settings')}
-        style={{
-          ...treeItemStyle,
-          color: currentSection === 'settings' ? '#1565c0' : '#666',
-          fontWeight: currentSection === 'settings' ? 600 : 400,
-          borderLeft: currentSection === 'settings' ? '3px solid #1976d2' : '3px solid transparent',
-          background: currentSection === 'settings' ? '#e3f2fd' : 'transparent',
-        }}
-      >
-        <span style={{ marginRight: 6, width: 14, fontSize: 10 }}></span>
-        <span style={{ marginRight: 6 }}>⚙️</span>
-        <span style={{ fontSize: 13 }}>设置</span>
-      </div>
-
-      {/* 导入/导出操作 */}
-      {hasProjectData && (
-        <div style={{ padding: '8px 14px 0' }}>
-          {onImport && (
-            <button onClick={onImport} style={actionBtn}>📥 导入项目</button>
-          )}
-          {onExport && (
-            <button onClick={onExport} style={{ ...actionBtn, marginTop: 4 }}>📤 导出项目</button>
-          )}
-        </div>
-      )}
     </div>
   );
 };
@@ -391,17 +357,6 @@ const iconBtn: React.CSSProperties = {
   fontSize: 11,
   borderRadius: 3,
   lineHeight: 1,
-};
-
-const actionBtn: React.CSSProperties = {
-  width: '100%',
-  background: 'transparent',
-  border: '1px solid #d0d0d0',
-  borderRadius: 6,
-  fontSize: 12,
-  cursor: 'pointer',
-  padding: '5px 10px',
-  color: '#555',
 };
 
 const confirmDeleteBtn: React.CSSProperties = {

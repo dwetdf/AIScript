@@ -15,8 +15,6 @@ export const EditorLayout: React.FC = () => {
   const isDirty = useScriptStore((s) => s.isDirty);
   const viewMode = useEditorStore((s) => s.viewMode);
   const setViewMode = useEditorStore((s) => s.setViewMode);
-  const showAiMarkers = useEditorStore((s) => s.showAiMarkers);
-  const setShowAiMarkers = useEditorStore((s) => s.setShowAiMarkers);
 
   if (!screenplay) {
     return (
@@ -48,16 +46,6 @@ export const EditorLayout: React.FC = () => {
             style={toolbarBtnStyle}
           >
             {viewMode === 'source_compare' ? '📝 编辑模式' : '📄 原文对照'}
-          </button>
-          <button
-            onClick={() => setShowAiMarkers(!showAiMarkers)}
-            style={{
-              ...toolbarBtnStyle,
-              background: showAiMarkers ? '#fff3e0' : '#fff',
-            }}
-            title="切换 AI / 原著标记"
-          >
-            {showAiMarkers ? '👁 AI 标记' : '👁‍🗨 隐藏标记'}
           </button>
           <PdfExporter />
         </div>
