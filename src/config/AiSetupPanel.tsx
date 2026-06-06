@@ -22,19 +22,23 @@ export const AiSetupPanel: React.FC<{ compact?: boolean }> = ({ compact = false 
   });
 
   if (compact && !expanded) {
+    const tier1Label = aiConfig.tier1_model
+      ? ` | 轻任务: ${aiConfig.tier1_model}`
+      : '';
     return (
       <div style={{ padding: 12 }}>
         <button onClick={() => setExpanded(true)} style={toggleBtnStyle}>
-          ⚙️ 配置 AI 引擎 · {AI_PROVIDER_LABELS[aiConfig.ai_provider]} / {aiConfig.ai_model}
+          ⚙️ 配置 AI 引擎 · {AI_PROVIDER_LABELS[aiConfig.ai_provider]} / {aiConfig.ai_model}{tier1Label}
         </button>
       </div>
     );
   }
 
   const handleProvider = (p: string) =>
-    setAiConfig({ ...aiConfig, ai_provider: p as AiConfig['ai_provider'], ai_model: AI_MODELS[p]?.[0] ?? '' });
+    setAiConfig({ ...aiConfig, ai_provider: p as AiConfig['ai_provider'], ai_model: AI_MODELS[p]?.[0] ?? '', tier1_model: undefined });
 
   const handleModel = (m: string) => setAiConfig({ ...aiConfig, ai_model: m });
+  const handleTier1Model = (m: string) => setAiConfig({ ...aiConfig, tier1_model: m || undefined });
   const handleCustomEndpoint = (u: string) => setAiConfig({ ...aiConfig, ai_api_base_url: u });
   const handleKey = (p: string, k: string) => { setApiKeys((s) => ({ ...s, [p]: k })); setApiKey(p, k); };
 
@@ -52,8 +56,8 @@ export const AiSetupPanel: React.FC<{ compact?: boolean }> = ({ compact = false 
           options={AI_PROVIDERS.map((p) => [p, AI_PROVIDER_LABELS[p] ?? p])} />
       </Section>
 
-      {/* ========= 模型 ========= */}
-      <Section title="模型">
+      {/* ========= 默认模型 ========= */}
+      <Section title="默认模型" hint="用于阶段 1 全文综合、阶段 2 改编规划、阶段 3 Beat 展开等重度任务">
         {aiConfig.ai_provider === 'custom' ? (
           <input
             style={inputStyle} placeholder="输入模型 ID，如 gpt-4o-mini"
@@ -62,6 +66,19 @@ export const AiSetupPanel: React.FC<{ compact?: boolean }> = ({ compact = false 
         ) : (
           <Select value={aiConfig.ai_model} onChange={handleModel}
             options={(AI_MODELS[aiConfig.ai_provider] ?? []).map((m) => [m, m])} />
+        )}
+      </Section>
+
+      {/* ========= 轻任务模型 ========= */}
+      <Section title="轻任务模型" hint="用于阶段 1 逐章分析等轻量并行任务。不选则自动从默认模型推导快速变体（如 deepseek-v4-pro → deepseek-chat）">
+        {aiConfig.ai_provider === 'custom' ? (
+          <input
+            style={inputStyle} placeholder="留空则自动推导，或手动输入模型 ID"
+            value={aiConfig.tier1_model ?? ''} onChange={(e) => handleTier1Model(e.target.value)}
+          />
+        ) : (
+          <Select value={aiConfig.tier1_model ?? ''} onChange={handleTier1Model}
+            options={[['', '自动推导（推荐）'], ...(AI_MODELS[aiConfig.ai_provider] ?? []).map((m): [string, string] => [m, m])]} />
         )}
       </Section>
 
@@ -92,10 +109,11 @@ export const AiSetupPanel: React.FC<{ compact?: boolean }> = ({ compact = false 
 
 // ---- helpers ----
 
-const Section: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
+const Section: React.FC<{ title: string; hint?: string; children: React.ReactNode }> = ({ title, hint, children }) => (
   <div style={{ marginBottom: 10 }}>
     <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#777', marginBottom: 3 }}>{title}</label>
     {children}
+    {hint && <div style={{ fontSize: 10, color: '#aaa', marginTop: 2, lineHeight: 1.4 }}>{hint}</div>}
   </div>
 );
 

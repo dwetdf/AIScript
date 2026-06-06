@@ -106,8 +106,8 @@ export async function tieredAnalyze(
   const totalChapters = novel.chapters.length;
   const signal = options?.signal;
 
-  // 推导 Tier 1 使用的模型（flash / 快速模型）
-  const tier1Model = options?.tier1Model || deriveTier1Model(aiConfig.ai_model);
+  // 推导 Tier 1 使用的模型：优先用 aiConfig.tier1_model，否则自动推导
+  const tier1Model = aiConfig.tier1_model || deriveTier1Model(aiConfig.ai_model);
   const tier1Config: AiConfig = { ...aiConfig, ai_model: tier1Model };
 
   // ====== Phase 1: 并行执行 Tier 1 + Tier 2 ======

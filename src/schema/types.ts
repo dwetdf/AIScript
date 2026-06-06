@@ -10,7 +10,10 @@
 /** AI 引擎配置 — 三个阶段共用，确保同源 */
 export interface AiConfig {
   ai_provider: 'deepseek' | 'openai' | 'anthropic' | 'zhipu' | 'moonshot' | 'custom';
+  /** 默认模型 — 用于阶段 1 Tier2 全文综合、阶段 2、阶段 3 等重度任务 */
   ai_model: string;
+  /** 轻任务模型 — 用于阶段 1 Tier1 逐章分析等轻量并行任务。不填则自动从默认模型推导快速变体 */
+  tier1_model?: string;
   ai_api_base_url?: string;
 }
 

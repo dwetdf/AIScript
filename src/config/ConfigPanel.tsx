@@ -28,11 +28,13 @@ export const ConfigPanel: React.FC = () => {
       ...aiConfig,
       ai_provider: provider as AiConfig['ai_provider'],
       ai_model: AI_MODELS[provider]?.[0] || '',
+      tier1_model: undefined,
     };
     setAiConfig(newConfig);
   };
 
   const handleModelChange = (model: string) => setAiConfig({ ...aiConfig, ai_model: model });
+  const handleTier1ModelChange = (model: string) => setAiConfig({ ...aiConfig, tier1_model: model || undefined });
   const handleApiKeyChange = (provider: string, key: string) => {
     setApiKeys((prev) => ({ ...prev, [provider]: key }));
     setApiKey(provider, key);
@@ -58,9 +60,10 @@ export const ConfigPanel: React.FC = () => {
         </select>
       </div>
 
-      {/* Model */}
+      {/* 默认模型 */}
       <div style={{ marginBottom: 12 }}>
-        <label style={labelStyle}>模型</label>
+        <label style={labelStyle}>默认模型</label>
+        <div style={{ fontSize: 10, color: '#aaa', marginBottom: 2 }}>用于全文综合、改编规划、Beat 展开等重度任务</div>
         <select
           value={aiConfig.ai_model}
           onChange={(e) => handleModelChange(e.target.value)}
@@ -79,6 +82,33 @@ export const ConfigPanel: React.FC = () => {
             placeholder="输入自定义模型名"
             value={aiConfig.ai_model}
             onChange={(e) => handleModelChange(e.target.value)}
+          />
+        )}
+      </div>
+
+      {/* 轻任务模型 */}
+      <div style={{ marginBottom: 12 }}>
+        <label style={labelStyle}>轻任务模型</label>
+        <div style={{ fontSize: 10, color: '#aaa', marginBottom: 2 }}>用于逐章分析等轻量并行任务。留空则自动从默认模型推导快速变体</div>
+        <select
+          value={aiConfig.tier1_model ?? ''}
+          onChange={(e) => handleTier1ModelChange(e.target.value)}
+          style={selectStyle}
+        >
+          <option value="">自动推导（推荐）</option>
+          {(AI_MODELS[aiConfig.ai_provider] || []).map((m) => (
+            <option key={m} value={m}>{m}</option>
+          ))}
+          {aiConfig.ai_provider === 'custom' && aiConfig.tier1_model && (
+            <option value={aiConfig.tier1_model}>{aiConfig.tier1_model}</option>
+          )}
+        </select>
+        {aiConfig.ai_provider === 'custom' && (
+          <input
+            style={{ ...inputStyle, marginTop: 4 }}
+            placeholder="留空自动推导，或手动输入模型名"
+            value={aiConfig.tier1_model ?? ''}
+            onChange={(e) => handleTier1ModelChange(e.target.value)}
           />
         )}
       </div>
