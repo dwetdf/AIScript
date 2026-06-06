@@ -7,18 +7,13 @@ import React, { useState } from 'react';
 import { useConfigStore } from '../store';
 import {
   AI_PROVIDERS, AI_PROVIDER_LABELS, AI_MODELS,
-  MEDIUM_LABELS, GENRE_OPTIONS, GENRE_LABELS,
-  TONE_OPTIONS, TONE_LABELS,
-  DIALOGUE_DENSITY_OPTIONS, DIALOGUE_DENSITY_LABELS,
-  ACTION_DETAIL_OPTIONS, ACTION_DETAIL_LABELS,
-  STAGE_DIRECTION_OPTIONS, STAGE_DIRECTION_LABELS,
 } from '../shared/constants';
 import { getApiKey, setApiKey } from '../shared/ai-config';
-import type { AiConfig, ConversionConfig } from '../schema/types';
+import type { AiConfig } from '../schema/types';
 
 /** 自适应布局的 AI 配置面板（独立于编辑器侧栏） */
 export const AiSetupPanel: React.FC<{ compact?: boolean }> = ({ compact = false }) => {
-  const { aiConfig, setAiConfig, conversionConfig, setConversionConfig } = useConfigStore();
+  const { aiConfig, setAiConfig } = useConfigStore();
   const [expanded, setExpanded] = useState(!compact);
   const [apiKeys, setApiKeys] = useState<Record<string, string>>(() => {
     const keys: Record<string, string> = {};
@@ -42,14 +37,6 @@ export const AiSetupPanel: React.FC<{ compact?: boolean }> = ({ compact = false 
   const handleModel = (m: string) => setAiConfig({ ...aiConfig, ai_model: m });
   const handleCustomEndpoint = (u: string) => setAiConfig({ ...aiConfig, ai_api_base_url: u });
   const handleKey = (p: string, k: string) => { setApiKeys((s) => ({ ...s, [p]: k })); setApiKey(p, k); };
-  const handleMedium = (m: string) => setConversionConfig({ ...conversionConfig, target_medium: m as ConversionConfig['target_medium'] });
-  const handleTone = (t: string) => setConversionConfig({ ...conversionConfig, tone: t as ConversionConfig['tone'] });
-  const toggleGenre = (g: string) => {
-    const next = conversionConfig.genre.includes(g)
-      ? conversionConfig.genre.filter((x) => x !== g)
-      : [...conversionConfig.genre, g];
-    setConversionConfig({ ...conversionConfig, genre: next });
-  };
 
   return (
     <div style={{ padding: 16, background: '#fff', borderRadius: 8, border: '1px solid #e8e8e8', fontSize: 13 }}>
@@ -99,61 +86,6 @@ export const AiSetupPanel: React.FC<{ compact?: boolean }> = ({ compact = false 
         </Section>
       )}
 
-      <Divider />
-
-      <h3 style={{ margin: '0 0 12px 0', fontSize: 15 }}>🎬 转换参数</h3>
-
-      {/* 媒介 */}
-      <Section title="目标媒介">
-        <Select value={conversionConfig.target_medium} onChange={handleMedium}
-          options={Object.entries(MEDIUM_LABELS)} />
-      </Section>
-
-      {/* 基调 */}
-      <Section title="基调">
-        <Select value={conversionConfig.tone} onChange={handleTone}
-          options={TONE_OPTIONS.map((t) => [t, TONE_LABELS[t] ?? t])} />
-      </Section>
-
-      {/* 对白密度 */}
-      <Section title="对白密度">
-        <Select value={conversionConfig.dialogue_density}
-          onChange={(v) => setConversionConfig({ ...conversionConfig, dialogue_density: v as ConversionConfig['dialogue_density'] })}
-          options={DIALOGUE_DENSITY_OPTIONS.map((d) => [d, DIALOGUE_DENSITY_LABELS[d] ?? d])} />
-      </Section>
-
-      {/* 动作详细度 */}
-      <Section title="动作详细度">
-        <Select value={conversionConfig.action_detail_level}
-          onChange={(v) => setConversionConfig({ ...conversionConfig, action_detail_level: v as ConversionConfig['action_detail_level'] })}
-          options={ACTION_DETAIL_OPTIONS.map((d) => [d, ACTION_DETAIL_LABELS[d] ?? d])} />
-      </Section>
-
-      {/* 舞台指示 */}
-      <Section title="舞台指示风格">
-        <Select value={conversionConfig.stage_direction_style}
-          onChange={(v) => setConversionConfig({ ...conversionConfig, stage_direction_style: v as ConversionConfig['stage_direction_style'] })}
-          options={STAGE_DIRECTION_OPTIONS.map((d) => [d, STAGE_DIRECTION_LABELS[d] ?? d])} />
-      </Section>
-
-      {/* 类型标签 */}
-      <Section title="类型标签">
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-          {GENRE_OPTIONS.map((g) => {
-            const active = conversionConfig.genre.includes(g);
-            return (
-              <button key={g} onClick={() => toggleGenre(g)}
-                style={{
-                  border: 'none', borderRadius: 12, padding: '3px 10px', fontSize: 11, cursor: 'pointer',
-                  background: active ? '#1976d2' : '#e8e8e8',
-                  color: active ? '#fff' : '#555', fontWeight: active ? 600 : 400,
-                }}>
-                {GENRE_LABELS[g] ?? g}
-              </button>
-            );
-          })}
-        </div>
-      </Section>
     </div>
   );
 };
@@ -173,8 +105,6 @@ const Select: React.FC<{ value: string; onChange: (v: string) => void; options: 
       {options.map(([k, v]) => <option key={k} value={k}>{v}</option>)}
     </select>
   );
-
-const Divider: React.FC = () => <hr style={{ border: 'none', borderTop: '1px solid #eee', margin: '16px 0' }} />;
 
 const selectStyle: React.CSSProperties = { width: '100%', padding: '6px 8px', borderRadius: 4, border: '1px solid #d0d0d0', fontSize: 13, background: '#fff' };
 const inputStyle: React.CSSProperties = { width: '100%', padding: '6px 8px', borderRadius: 4, border: '1px solid #d0d0d0', fontSize: 13, boxSizing: 'border-box' };

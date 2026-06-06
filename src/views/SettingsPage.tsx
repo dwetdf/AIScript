@@ -7,16 +7,11 @@ import React, { useState } from 'react';
 import { useConfigStore } from '@/store';
 import {
   AI_PROVIDERS, AI_PROVIDER_LABELS, AI_MODELS,
-  MEDIUM_LABELS, GENRE_OPTIONS, GENRE_LABELS,
-  TONE_OPTIONS, TONE_LABELS,
-  DIALOGUE_DENSITY_OPTIONS, DIALOGUE_DENSITY_LABELS,
-  ACTION_DETAIL_OPTIONS, ACTION_DETAIL_LABELS,
-  STAGE_DIRECTION_OPTIONS, STAGE_DIRECTION_LABELS,
 } from '@/shared/constants';
 import { getApiKey, setApiKey } from '@/shared/ai-config';
-import type { AiConfig, ConversionConfig } from '@/schema/types';
+import type { AiConfig } from '@/schema/types';
 
-type Tab = 'ai' | 'params' | 'about';
+type Tab = 'ai' | 'about';
 
 interface Props {
   onBack: () => void;
@@ -27,7 +22,6 @@ export const SettingsPage: React.FC<Props> = ({ onBack }) => {
 
   const tabs: Array<{ key: Tab; label: string; icon: string }> = [
     { key: 'ai', label: 'AI 引擎', icon: '🤖' },
-    { key: 'params', label: '转换参数', icon: '🎬' },
     { key: 'about', label: '关于', icon: 'ℹ️' },
   ];
 
@@ -65,7 +59,6 @@ export const SettingsPage: React.FC<Props> = ({ onBack }) => {
       {/* Tab Content */}
       <div style={{ background: '#fff', border: '1px solid #e8e8e8', borderRadius: 8, padding: 24 }}>
         {tab === 'ai' && <AiEngineTab />}
-        {tab === 'params' && <ParamsTab />}
         {tab === 'about' && <AboutTab />}
       </div>
     </div>
@@ -148,61 +141,6 @@ const AiEngineTab: React.FC = () => {
           ))}
         </div>
       </details>
-    </div>
-  );
-};
-
-// ===================== 转换参数 Tab =====================
-
-const ParamsTab: React.FC = () => {
-  const { conversionConfig, setConversionConfig } = useConfigStore();
-  const cfg = conversionConfig;
-
-  return (
-    <div style={{ display: 'grid', gridTemplateColumns: '140px 1fr', gap: '12px 16px', alignItems: 'center' }}>
-      <Label>目标媒介</Label>
-      <select value={cfg.target_medium} onChange={(e) => setConversionConfig({ ...cfg, target_medium: e.target.value as ConversionConfig['target_medium'] })} style={selectStyle}>
-        {Object.entries(MEDIUM_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-      </select>
-
-      <Label>基调</Label>
-      <select value={cfg.tone} onChange={(e) => setConversionConfig({ ...cfg, tone: e.target.value as ConversionConfig['tone'] })} style={selectStyle}>
-        {TONE_OPTIONS.map((t) => <option key={t} value={t}>{TONE_LABELS[t] ?? t}</option>)}
-      </select>
-
-      <Label>对白密度</Label>
-      <select value={cfg.dialogue_density} onChange={(e) => setConversionConfig({ ...cfg, dialogue_density: e.target.value as ConversionConfig['dialogue_density'] })} style={selectStyle}>
-        {DIALOGUE_DENSITY_OPTIONS.map((d) => <option key={d} value={d}>{DIALOGUE_DENSITY_LABELS[d] ?? d}</option>)}
-      </select>
-
-      <Label>动作详细度</Label>
-      <select value={cfg.action_detail_level} onChange={(e) => setConversionConfig({ ...cfg, action_detail_level: e.target.value as ConversionConfig['action_detail_level'] })} style={selectStyle}>
-        {ACTION_DETAIL_OPTIONS.map((d) => <option key={d} value={d}>{ACTION_DETAIL_LABELS[d] ?? d}</option>)}
-      </select>
-
-      <Label>舞台指示风格</Label>
-      <select value={cfg.stage_direction_style} onChange={(e) => setConversionConfig({ ...cfg, stage_direction_style: e.target.value as ConversionConfig['stage_direction_style'] })} style={selectStyle}>
-        {STAGE_DIRECTION_OPTIONS.map((d) => <option key={d} value={d}>{STAGE_DIRECTION_LABELS[d] ?? d}</option>)}
-      </select>
-
-      <Label>类型标签</Label>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-        {GENRE_OPTIONS.map((g) => {
-          const active = cfg.genre.includes(g);
-          return (
-            <button key={g} onClick={() => {
-              const next = active ? cfg.genre.filter((x) => x !== g) : [...cfg.genre, g];
-              setConversionConfig({ ...cfg, genre: next });
-            }} style={{
-              border: 'none', borderRadius: 12, padding: '3px 10px', fontSize: 11, cursor: 'pointer',
-              background: active ? '#1976d2' : '#e8e8e8', color: active ? '#fff' : '#555',
-              fontWeight: active ? 600 : 400,
-            }}>
-              {GENRE_LABELS[g] ?? g}
-            </button>
-          );
-        })}
-      </div>
     </div>
   );
 };
