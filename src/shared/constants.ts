@@ -154,6 +154,17 @@ export const DEFAULT_BEAT_EXPANSION_CONCURRENCY = 3;
 /** Beat 展开最大并发数（防止触发 API 限流） */
 export const MAX_BEAT_EXPANSION_CONCURRENCY = 10;
 
+// ============================== 分块分析 ==============================
+
+/** 阶段 1 分块分析：每块包含的章节数 */
+export const DEFAULT_CHUNK_SIZE = 5;
+
+/** 阶段 1 分块分析：并行处理块的最大并发数 */
+export const DEFAULT_STAGE1_CONCURRENCY = 2;
+
+/** 分块分析的触发阈值：章节数 > 此值才分块 */
+export const CHUNK_THRESHOLD = 3;
+
 // ============================== Beat 类型 ==============================
 
 export const BEAT_TYPES = [

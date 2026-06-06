@@ -1,11 +1,13 @@
 // ============================================================================
 // ScriptPage — 阶段3 剧本编辑全页
 // sub-tabs: 剧本编辑 / 人物表
+// v0.5.0: 新增导出按钮（PDF）
 // ============================================================================
 
 import React from 'react';
 import { useScriptStore } from '../store';
 import { Editor } from '../editor';
+import { exportPdf } from '../renderer/pdf';
 import type { AppSection } from '../components/AppShell';
 
 interface Props {
@@ -20,6 +22,9 @@ const TABS: Array<{ id: AppSection; label: string; icon: string }> = [
 
 export const ScriptPage: React.FC<Props> = ({ section, onSectionChange }) => {
   const screenplay = useScriptStore((s) => s.screenplay);
+
+  const beatsCount = screenplay?.acts.reduce((s, a) => s + a.scenes.reduce((ss, sc) => ss + sc.beats.length, 0), 0) ?? 0;
+  const sceneCount = screenplay?.acts.reduce((s, a) => s + a.scenes.length, 0) ?? 0;
 
   if (!screenplay) {
     return (
@@ -36,6 +41,7 @@ export const ScriptPage: React.FC<Props> = ({ section, onSectionChange }) => {
       <div style={{
         display: 'flex', gap: 0, padding: '0 24px',
         borderBottom: '1px solid #e0e0e0', background: '#fff', flexShrink: 0,
+        alignItems: 'center',
       }}>
         {TABS.map((tab) => (
           <button
@@ -57,10 +63,18 @@ export const ScriptPage: React.FC<Props> = ({ section, onSectionChange }) => {
           </button>
         ))}
         <div style={{ flex: 1 }} />
+
+        {/* Export */}
+        <button onClick={exportPdf} style={{
+          padding: '6px 14px', border: '1px solid #1976d2', borderRadius: 6,
+          background: '#1976d2', color: '#fff', cursor: 'pointer', fontSize: 12,
+          fontWeight: 500, display: 'flex', alignItems: 'center', gap: 4, marginRight: 8, marginBottom: 8,
+        }}>
+          🖨 导出 PDF
+        </button>
+
         <span style={{ fontSize: 11, color: '#999', alignSelf: 'center', marginBottom: 8 }}>
-          {screenplay.acts.reduce((s, a) => s + a.scenes.reduce((ss, sc) => ss + sc.beats.length, 0), 0)} beats
-          · {screenplay.acts.length} 幕 · {' '}
-          {screenplay.acts.reduce((s, a) => s + a.scenes.length, 0)} 场
+          {beatsCount} beats · {screenplay.acts.length} 幕 · {sceneCount} 场
         </span>
       </div>
 

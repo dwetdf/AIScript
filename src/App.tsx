@@ -12,6 +12,8 @@ import { PlanPage } from './views/PlanPage';
 import { ScriptPage } from './views/ScriptPage';
 import { SettingsPage } from './views/SettingsPage';
 import { ScreenplayPrintView } from './renderer/ScreenplayPrintView';
+import { AnalysisPrintView } from './renderer/AnalysisPrintView';
+import { PlanPrintView } from './renderer/PlanPrintView';
 import {
   useProjectStore, useAnalysisStore, usePlanStore,
   useScriptStore, useConfigStore, useEditorStore,
@@ -45,6 +47,7 @@ export const App: React.FC = () => {
   const setScreenplay = useScriptStore((s) => s.setScreenplay);
   const clearScreenplay = useScriptStore((s) => s.clearScreenplay);
   const screenplay = useScriptStore((s) => s.screenplay);
+  const analysis = useAnalysisStore((s) => s.analysis);
   const isProcessing = useEditorStore((s) => s.isProcessing);
   const processingStep = useEditorStore((s) => s.processingStep);
 
@@ -212,6 +215,8 @@ export const App: React.FC = () => {
         />
       )}
       {screenplay && <ScreenplayPrintView />}
+      {analysis && <AnalysisPrintView />}
+      <PlanPrintView />
     </>
   );
 };

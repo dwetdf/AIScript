@@ -17,6 +17,8 @@ export interface ExpandBeatsOptions {
   onProgress?: (completed: number, total: number, currentScenes: string[]) => void;
   /** 单个场景完成通知 */
   onSceneComplete?: (sceneGlobalNumber: number, status: 'done' | 'failed') => void;
+  /** 中断信号：设置后终止后续场景调用，已完成的保留 */
+  signal?: AbortSignal;
 }
 
 /** 展平后的场景任务 */
@@ -68,7 +70,7 @@ export async function expandBeats(
   // 跟踪并行运行中的场景名称
   const runningScenes = new Map<number, string>();
 
-  // 并行执行（带进度回调）
+  // 并行执行（带进度回调 + 中断信号）
   const rawResults = await batchChatCompletionJson<{
     beats: Array<Record<string, unknown>>;
     tension_level?: number;
@@ -86,7 +88,8 @@ export async function expandBeats(
       } else {
         options?.onSceneComplete?.(task.scenePlan.scene_global_number, 'failed');
       }
-    }
+    },
+    options?.signal // 传递中断信号
   );
 
   // 每个任务开始时更新 runningScenes（我们在 batch fn 外部追踪）
