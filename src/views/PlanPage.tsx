@@ -117,9 +117,16 @@ export const PlanPage: React.FC<Props> = ({ section, onSectionChange }) => {
         {/* 内容区 */}
         <div style={{ flex: 1, overflow: 'auto', padding: 24 }}>
           <PlanStatBar plan={plan} />
-          {(section === 'plan_overview' || section === 'plan_strategy') && <StrategySection plan={plan} />}
-          {(section === 'plan_overview' || section === 'plan_acts') && <ActsSection plan={plan} />}
-          {(section === 'plan_overview' || section === 'plan_scenes') && <ScenesSection plan={plan} />}
+          {section === 'plan_overview' && (
+            <>
+              <StrategySection plan={plan} />
+              <ActsSection plan={plan} />
+              <ScenesSection plan={plan} />
+            </>
+          )}
+          {section === 'plan_strategy' && <StrategySection plan={plan} />}
+          {section === 'plan_acts' && <ActsSection plan={plan} />}
+          {section === 'plan_scenes' && <ScenesSection plan={plan} />}
         </div>
       </div>
     );
