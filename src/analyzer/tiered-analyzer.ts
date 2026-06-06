@@ -151,7 +151,7 @@ async function runTier1(
         { role: 'user' as const, content: prompt },
       ],
       config: tier1Config,
-      options: { temperature: 0.4, maxTokens: 8192 },
+      options: { temperature: 0.4, maxTokens: 16384 },
     };
   });
 
@@ -210,13 +210,30 @@ function mergeTieredResults(
   const validChapters = tier1Results.filter((r): r is Tier1ChapterResult => r !== null);
 
   // 构建章节摘要（不含原文）
-  const chapterSummaries: ChapterSummary[] = novel.chapters.map((ch) => {
-    const ai = validChapters.find((r) => r.chapter_number === ch.chapterNumber);
+  // 先建 chapter_number → result 的索引，再按位置回退
+  const resultByChapter = new Map<number, Tier1ChapterResult>();
+  for (const r of validChapters) {
+    resultByChapter.set(r.chapter_number, r);
+  }
+
+  const chapterSummaries: ChapterSummary[] = novel.chapters.map((ch, idx) => {
+    // 优先按 AI 返回的 chapter_number 匹配，失败时按数组位置回退
+    const ai = resultByChapter.get(ch.chapterNumber)
+      || (idx < validChapters.length ? validChapters[idx] : undefined);
+    const hasValidSummary = ai?.summary && ai.summary.length > 5;
+
+    if (!ai) {
+      console.warn(`[tiered-analyzer] 第${ch.chapterNumber}章 AI 调用失败，使用回退摘要`);
+    } else if (!hasValidSummary) {
+      console.warn(`[tiered-analyzer] 第${ch.chapterNumber}章 AI 返回空摘要，使用回退摘要`, ai);
+    }
 
     return {
       chapter_number: ch.chapterNumber,
       chapter_title: ch.title,
-      summary: ai?.summary || `${ch.title || `第${ch.chapterNumber}章`}，共 ${ch.paragraphs.length} 段`,
+      summary: hasValidSummary
+        ? ai!.summary
+        : `⚠️ 第${ch.chapterNumber}章分析未完成，请重试阶段1（共 ${ch.paragraphs.length} 段）`,
       key_events: ai?.key_events || [],
       characters_appeared: ai?.characters_appeared || [],
       locations: ai?.locations || [],
