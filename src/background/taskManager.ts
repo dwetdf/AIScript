@@ -17,7 +17,7 @@ import { expandBeats, actGroupedExpandBeats } from '../converter';
 import { validate } from '../schema/validator';
 import {
   saveAnalysis, savePlan, saveScreenplay,
-  saveProjectMeta,
+  saveProjectMeta, saveNovel,
 } from '../api/endpoints';
 import { useProjectStore } from '../store/projectStore';
 import { useTaskStore, type BgTaskStage } from './taskStore';
@@ -72,6 +72,9 @@ export async function startStage1Analysis(
     startedAt: new Date().toISOString(),
     progress: { current: 0, total: totalChapters, tier1Done: 0, tier1Total: totalChapters, tier2Running: true },
   });
+
+  // 持久化原始小说（用于后续单章重新生成）
+  saveNovel(projectId, novel);
 
   try {
     const analysis = await analyzeNovel(novel, aiConfig, {

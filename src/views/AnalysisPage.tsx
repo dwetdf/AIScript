@@ -4,10 +4,11 @@
 // v0.7.0: 后台分析 — 支持显示后台任务进度，自动加载完成结果
 // ============================================================================
 
-import React, { useEffect } from 'react';
-import { useAnalysisStore, useProjectStore, useTaskStore } from '../store';
-import { loadAnalysis } from '../api/endpoints';
+import React, { useEffect, useState, useCallback } from 'react';
+import { useAnalysisStore, useProjectStore, useTaskStore, useConfigStore } from '../store';
+import { loadAnalysis, loadNovel, saveAnalysis } from '../api/endpoints';
 import { cancelTask } from '../background/taskManager';
+import { regenerateChapter } from '../analyzer';
 import { StatBar, ThemesSection, CharactersSection, ConflictSection, EventsTimeline, ChaptersSection } from './AnalysisPreview';
 import { exportAnalysisPdf, exportAnalysisHtml } from '../renderer/analysisExport';
 import { copyToClipboard } from '../shared/download';
@@ -29,10 +30,38 @@ const TABS: Array<{ id: AppSection; label: string; icon: string }> = [
 export const AnalysisPage: React.FC<Props> = ({ section, onSectionChange }) => {
   const analysis = useAnalysisStore((s) => s.analysis);
   const setAnalysis = useAnalysisStore((s) => s.setAnalysis);
+  const updateChapter = useAnalysisStore((s) => s.updateChapter);
   const activeProjectId = useProjectStore((s) => s.activeProjectId);
+  const aiConfig = useConfigStore((s) => s.aiConfig);
   const task = useTaskStore((s) => s.getTask(activeProjectId || '', 'stage1'));
   const dismissNotification = useTaskStore((s) => s.dismissNotification);
-  const [copied, setCopied] = React.useState(false);
+  const [copied, setCopied] = useState(false);
+  const [regeneratingChapter, setRegeneratingChapter] = useState<number | null>(null);
+
+  // 单章重新生成
+  const handleRegenerate = useCallback(async (chapterNumber: number) => {
+    if (!activeProjectId || !analysis) return;
+    const novel = loadNovel(activeProjectId);
+    if (!novel) return;
+
+    const chapterIndex = chapterNumber - 1;
+    setRegeneratingChapter(chapterNumber);
+    try {
+      const { chapterSummary, curatedPassages } = await regenerateChapter(
+        { title: novel.title, author: novel.author, chapters: novel.chapters, rawText: '' },
+        chapterIndex,
+        aiConfig
+      );
+      updateChapter(chapterNumber, chapterSummary, curatedPassages);
+      // 同步持久化
+      const updated = useAnalysisStore.getState().analysis;
+      if (updated) saveAnalysis(activeProjectId, updated);
+    } catch (e) {
+      console.error(`重新生成第${chapterNumber}章失败:`, e);
+    } finally {
+      setRegeneratingChapter(null);
+    }
+  }, [activeProjectId, analysis, aiConfig, updateChapter]);
 
   // 页面挂载时清除该阶段的完成通知
   useEffect(() => {
@@ -172,7 +201,7 @@ export const AnalysisPage: React.FC<Props> = ({ section, onSectionChange }) => {
             <div style={{ height: 16 }} />
             <EventsTimeline analysis={analysis} />
             <div style={{ height: 16 }} />
-            <ChaptersSection analysis={analysis} />
+            <ChaptersSection analysis={analysis} onRegenerate={handleRegenerate} regeneratingChapter={regeneratingChapter} />
           </>
         );
       case 'analysis_theme':
@@ -202,7 +231,7 @@ export const AnalysisPage: React.FC<Props> = ({ section, onSectionChange }) => {
         return (
           <>
             <StatBar analysis={analysis} />
-            <ChaptersSection analysis={analysis} />
+            <ChaptersSection analysis={analysis} onRegenerate={handleRegenerate} regeneratingChapter={regeneratingChapter} />
           </>
         );
       default:
