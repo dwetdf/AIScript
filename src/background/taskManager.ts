@@ -65,7 +65,7 @@ export async function startStage1Analysis(
     projectId,
     stage,
     status: 'running',
-    message: '正在分析小说...',
+    message: 'AI 正在逐章分析 + 提炼全局主题...',
     notificationShown: false,
     startedAt: new Date().toISOString(),
   });
@@ -73,9 +73,12 @@ export async function startStage1Analysis(
   try {
     const analysis = await analyzeNovel(novel, aiConfig, {
       onProgress: (chunk, totalChunks, label) => {
+        const isGlobalPhase = label.includes('提炼全局') || label.includes('全局');
         getStore()._setTask({
           projectId, stage, status: 'running',
-          message: `正在分析第 ${chunk}/${totalChunks} 块...`,
+          message: isGlobalPhase
+            ? `正在提炼全局主题与人物关系...`
+            : `正在逐章分析 (${chunk}/${totalChunks})`,
           progress: { current: chunk, total: totalChunks, label },
           notificationShown: false,
           startedAt: getStore().getTask(projectId, stage)?.startedAt || new Date().toISOString(),

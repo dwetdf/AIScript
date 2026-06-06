@@ -52,8 +52,10 @@ export interface NovelAnalysis {
   plot_analysis: PlotAnalysis;
   /** F14-F17 人物分析 */
   character_analysis: CharacterAnalysis[];
-  /** F18 章节摘要 + raw_passages */
+  /** F18 章节摘要 */
   chapter_summaries: ChapterSummary[];
+  /** F18-bis AI 精选原文片段 — 防漂移机制第一层，替代 raw_passages */
+  curated_passages: CuratedPassage[];
   ai_config?: AiConfig;
   generated_at?: string;
 }
@@ -153,19 +155,22 @@ export interface ChapterSummary {
   locations?: string[];
   paragraph_count?: number;
   adaptation_potential?: 'high' | 'medium' | 'low' | 'skip';
-  /** F18 原文段落 — 防漂移机制第一层 */
-  raw_passages: RawPassage[];
 }
 
-export interface RawPassage {
-  /** 段落序号（章节内从 1 开始） */
-  paragraph: number;
-  /** 段落原文完整文本 */
+/** F18-bis AI 精选原文片段 — 替代全量 raw_passages */
+export interface CuratedPassage {
+  /** 原文摘录（≤200字） */
   text: string;
-  type?: 'narrative' | 'dialogue' | 'mixed' | 'description' | 'action' | 'internal_monologue';
-  speakers?: string[];
-  significance?: 'critical' | 'major' | 'minor';
-  adaptation_hint?: string;
+  /** 片段类型 */
+  passage_type: 'dialogue' | 'action' | 'description' | 'character_moment';
+  /** 关联人物名 */
+  characters_involved?: string[];
+  /** 所属章节 */
+  source_chapter: number;
+  /** 段落序号（章节内从 1 开始） */
+  source_paragraph?: number;
+  /** AI 标注：为什么值得保留 */
+  why_valuable?: string;
 }
 
 // ============================== 阶段 2：AdaptationPlan ==============================

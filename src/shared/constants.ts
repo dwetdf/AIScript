@@ -182,16 +182,33 @@ export const DEFAULT_BEAT_EXPANSION_CONCURRENCY = 3;
 /** Beat 展开最大并发数（防止触发 API 限流） */
 export const MAX_BEAT_EXPANSION_CONCURRENCY = 10;
 
-// ============================== 分块分析 ==============================
+// ============================== 阶段 1 双层并行分析 ==============================
 
-/** 阶段 1 分块分析：每块包含的章节数 */
-export const DEFAULT_CHUNK_SIZE = 5;
+/** Tier 1 逐章并行分析的默认并发数（flash 模型，并发上限高） */
+export const DEFAULT_TIER1_CONCURRENCY = 8;
 
-/** 阶段 1 分块分析：并行处理块的最大并发数 */
-export const DEFAULT_STAGE1_CONCURRENCY = 2;
+/** 主模型 → flash/快速模型映射（Tier 1 自动选择） */
+export const TIER1_MODEL_MAP: Record<string, string> = {
+  'deepseek-v4-pro': 'deepseek-chat',
+  'deepseek-chat': 'deepseek-chat',
+  'deepseek-reasoner': 'deepseek-chat',
+  'claude-sonnet-4-20250514': 'claude-haiku-4-20250514',
+  'claude-opus-4-20250514': 'claude-haiku-4-20250514',
+  'gpt-4o': 'gpt-4o-mini',
+  'gpt-4-turbo': 'gpt-4o-mini',
+  'glm-4-plus': 'glm-4-air',
+  'moonshot-v1-8k': 'moonshot-v1-8k',
+  'moonshot-v1-32k': 'moonshot-v1-32k',
+  'moonshot-v1-128k': 'moonshot-v1-128k',
+};
 
-/** 分块分析的触发阈值：章节数 > 此值才分块 */
+/** 分块分析的触发阈值（保留兼容） */
 export const CHUNK_THRESHOLD = 3;
+
+/** @deprecated 旧分块参数，保留兼容 */
+export const DEFAULT_CHUNK_SIZE = 5;
+/** @deprecated 旧并发参数 */
+export const DEFAULT_STAGE1_CONCURRENCY = 2;
 
 // ============================== Beat 类型 ==============================
 
