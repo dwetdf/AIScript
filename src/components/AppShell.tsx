@@ -25,6 +25,9 @@ interface Props {
   currentSection: AppSection;
   onNavigate: (section: AppSection) => void;
   children: React.ReactNode;
+  onExport?: () => void;
+  onImport?: () => void;
+  hasProjectData?: boolean;
 }
 
 /** 面包屑映射 */
@@ -52,7 +55,7 @@ interface TreeNode {
   children?: TreeNode[];
 }
 
-export const AppShell: React.FC<Props> = ({ currentSection, onNavigate, children }) => {
+export const AppShell: React.FC<Props> = ({ currentSection, onNavigate, children, onExport, onImport, hasProjectData }) => {
   const analysis = useAnalysisStore((s) => s.analysis);
   const plan = usePlanStore((s) => s.plan);
   const screenplay = useScriptStore((s) => s.screenplay);
@@ -137,13 +140,25 @@ export const AppShell: React.FC<Props> = ({ currentSection, onNavigate, children
             </span>
           )}
         </div>
-        <button
-          onClick={() => onNavigate('settings')}
-          style={gearBtn}
-          title="设置"
-        >
-          ⚙️
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          {onImport && (
+            <button onClick={onImport} style={actionBtn} title="导入项目">
+              📥 导入
+            </button>
+          )}
+          {onExport && hasProjectData && (
+            <button onClick={onExport} style={actionBtn} title="导出项目">
+              📤 导出
+            </button>
+          )}
+          <button
+            onClick={() => onNavigate('settings')}
+            style={gearBtn}
+            title="设置"
+          >
+            ⚙️
+          </button>
+        </div>
       </div>
 
       {/* ======== Body: 左侧树 + 右侧内容 ======== */}
@@ -218,6 +233,16 @@ const headerStyle: React.CSSProperties = {
   borderBottom: '1px solid #e0e0e0',
   background: '#fff',
   flexShrink: 0,
+};
+
+const actionBtn: React.CSSProperties = {
+  background: 'transparent',
+  border: '1px solid #d0d0d0',
+  borderRadius: 6,
+  fontSize: 12,
+  cursor: 'pointer',
+  padding: '4px 10px',
+  color: '#555',
 };
 
 const gearBtn: React.CSSProperties = {

@@ -3,7 +3,7 @@
 // 面包屑 + 侧边树 + 可视化预览 + 非阻塞AI + Settings独立页
 // ============================================================================
 
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Editor } from './editor';
 import { AppShell, type AppSection } from './components/AppShell';
 import { LoadingStage } from './components/LoadingStage';
@@ -16,7 +16,12 @@ import { analyzeNovel } from './analyzer';
 import { planAdaptation } from './planner';
 import { expandBeats } from './converter';
 import { validate } from './schema/validator';
-import { saveAnalysis, savePlan, saveScreenplay, saveProjectMeta } from './api/endpoints';
+import { saveAnalysis, savePlan, saveScreenplay, saveProjectMeta, loadAnalysis, loadPlan, loadScreenplay, exportProjectBundle, importProjectBundle } from './api/endpoints';
+import { downloadFile } from './shared/download';
+import { pickFile } from './shared/file-picker';
+import { previewProjectBundle } from './shared/project-io';
+import type { BundlePreview } from './shared/project-io';
+import { ImportPreviewDialog } from './components/ImportPreviewDialog';
 import type { ParsedNovel } from './parser';
 
 const PROJECT_ID = 'default_project';
@@ -29,6 +34,10 @@ export const App: React.FC = () => {
   // 展开阶段进度
   const [expandProgress, setExpandProgress] = useState<{ current: number; total: number; currentScene: string } | null>(null);
 
+  // 导入预览状态
+  const [importPreview, setImportPreview] = useState<BundlePreview | null>(null);
+  const [importRawJson, setImportRawJson] = useState<string>('');
+
   const screenplay = useScriptStore((s) => s.screenplay);
   const analysis = useAnalysisStore((s) => s.analysis);
   const plan = usePlanStore((s) => s.plan);
@@ -38,6 +47,30 @@ export const App: React.FC = () => {
   const setScreenplay = useScriptStore((s) => s.setScreenplay);
   const setProcessing = useEditorStore((s) => s.setProcessing);
   const isProcessing = useEditorStore((s) => s.isProcessing);
+
+  // ===================== 启动时从 localStorage 恢复数据 =====================
+  useEffect(() => {
+    const metaRaw = localStorage.getItem('aiscript_project_meta_default_project');
+    if (!metaRaw) return; // 没有历史数据
+
+    const a = loadAnalysis(PROJECT_ID);
+    if (a) {
+      setAnalysis(a);
+      if (!section || section === 'import') setSection('analysis_overview');
+    }
+
+    const p = loadPlan(PROJECT_ID);
+    if (p) {
+      setPlan(p);
+      if (!a) setSection('plan_overview');
+    }
+
+    const s = loadScreenplay(PROJECT_ID);
+    if (s) {
+      setScreenplay(s);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // 仅在组件挂载时执行一次
 
   /** 让 React 有机会渲染一帧——解决页面卡死问题 */
   const yieldFrame = () => new Promise((r) => setTimeout(r, 0));
@@ -134,6 +167,52 @@ export const App: React.FC = () => {
     }
   }, [plan, aiConfig, setScreenplay, setProcessing]);
 
+  // ===================== 导出项目 =====================
+  const handleExport = useCallback(() => {
+    const json = exportProjectBundle(PROJECT_ID);
+    const title = analysis?.source_info?.title || plan?.adaptation_strategy?.target_medium || screenplay?.metadata?.title || 'project';
+    downloadFile(json, `${title}-aiscript-bundle.json`, 'application/json');
+  }, [analysis, plan, screenplay]);
+
+  // ===================== 导入项目 =====================
+  const handleImportClick = useCallback(async () => {
+    const file = await pickFile('.json');
+    if (!file) return;
+    const text = await file.text();
+    const preview = previewProjectBundle(text);
+    setImportRawJson(text);
+    setImportPreview(preview);
+  }, []);
+
+  const handleImportConfirm = useCallback(() => {
+    if (!importPreview?.valid) return;
+    const meta = importProjectBundle(importRawJson, PROJECT_ID);
+    if (!meta) return;
+
+    // 恢复到 Zustand stores
+    const a = loadAnalysis(PROJECT_ID);
+    if (a) setAnalysis(a);
+    const p = loadPlan(PROJECT_ID);
+    if (p) setPlan(p);
+    const s = loadScreenplay(PROJECT_ID);
+    if (s) {
+      setScreenplay(s);
+      setSection('script_edit');
+    } else if (p) {
+      setSection('plan_overview');
+    } else if (a) {
+      setSection('analysis_overview');
+    }
+
+    setImportPreview(null);
+    setImportRawJson('');
+  }, [importPreview, importRawJson, setAnalysis, setPlan, setScreenplay]);
+
+  const handleImportCancel = useCallback(() => {
+    setImportPreview(null);
+    setImportRawJson('');
+  }, []);
+
   // ===================== 路由 =====================
 
   // 编辑器模式（进入后不可返回）
@@ -151,7 +230,14 @@ export const App: React.FC = () => {
   }
 
   return (
-    <AppShell currentSection={section} onNavigate={setSection}>
+    <>
+    <AppShell
+      currentSection={section}
+      onNavigate={setSection}
+      onExport={handleExport}
+      onImport={handleImportClick}
+      hasProjectData={!!(analysis || plan || screenplay)}
+    >
       <div style={{ maxWidth: 960, margin: '0 auto', padding: 24 }}>
         {/* ======== 错误提示 ======== */}
         {error && (
@@ -217,6 +303,16 @@ export const App: React.FC = () => {
         )}
       </div>
     </AppShell>
+
+    {/* ======== 导入预览弹窗 ======== */}
+    {importPreview && (
+      <ImportPreviewDialog
+        preview={importPreview}
+        onConfirm={handleImportConfirm}
+        onCancel={handleImportCancel}
+      />
+    )}
+    </>
   );
 };
 
