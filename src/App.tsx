@@ -1,160 +1,74 @@
 // ============================================================================
-// App 根组件 — v0.2.0 重构
-// 面包屑 + 侧边树 + 可视化预览 + 非阻塞AI + Settings独立页
+// App 根组件 — 简洁路由器
+// 项目管理侧边栏 + 阶段独立页面
 // ============================================================================
 
 import React, { useState, useCallback, useEffect } from 'react';
-import { Editor } from './editor';
-import { AppShell, type AppSection } from './components/AppShell';
-import { LoadingStage } from './components/LoadingStage';
-import { AnalysisPreview } from './views/AnalysisPreview';
-import { PlanPreview } from './views/PlanPreview';
+import { AppShell, deriveBreadcrumb, type AppSection, type BreadcrumbItem } from './components/AppShell';
+import { ProjectSidebar } from './components/ProjectSidebar';
+import { ImportPage } from './views/ImportPage';
+import { AnalysisPage } from './views/AnalysisPage';
+import { PlanPage } from './views/PlanPage';
+import { ScriptPage } from './views/ScriptPage';
 import { SettingsPage } from './views/SettingsPage';
-import { useScriptStore, useAnalysisStore, usePlanStore, useConfigStore, useEditorStore } from './store';
-import { parseNovel } from './parser';
-import { analyzeNovel } from './analyzer';
-import { planAdaptation } from './planner';
-import { expandBeats } from './converter';
-import { validate } from './schema/validator';
-import { saveAnalysis, savePlan, saveScreenplay, saveProjectMeta, loadAnalysis, loadPlan, loadScreenplay, exportProjectBundle, importProjectBundle } from './api/endpoints';
+import { ScreenplayPrintView } from './renderer/ScreenplayPrintView';
+import {
+  useProjectStore, useAnalysisStore, usePlanStore,
+  useScriptStore, useConfigStore, useEditorStore,
+} from './store';
+import {
+  loadAnalysis, loadPlan, loadScreenplay,
+  exportProjectBundle, importProjectBundle,
+} from './api/endpoints';
 import { downloadFile } from './shared/download';
 import { pickFile } from './shared/file-picker';
 import { previewProjectBundle } from './shared/project-io';
 import type { BundlePreview } from './shared/project-io';
 import { ImportPreviewDialog } from './components/ImportPreviewDialog';
-import { ScreenplayPrintView } from './renderer/ScreenplayPrintView';
-import type { ParsedNovel } from './parser';
-
-const PROJECT_ID = 'default_project';
 
 export const App: React.FC = () => {
   const [section, setSection] = useState<AppSection>('import');
-  const [error, setError] = useState<string | null>(null);
-  const [loadingMsg, setLoadingMsg] = useState('');
-
-  // 展开阶段进度
-  const [expandProgress, setExpandProgress] = useState<{ current: number; total: number; currentScenes: string[] } | null>(null);
-
-  // 导入预览状态
   const [importPreview, setImportPreview] = useState<BundlePreview | null>(null);
-  const [importRawJson, setImportRawJson] = useState<string>('');
+  const [importRawJson, setImportRawJson] = useState('');
 
-  const screenplay = useScriptStore((s) => s.screenplay);
-  const analysis = useAnalysisStore((s) => s.analysis);
-  const plan = usePlanStore((s) => s.plan);
-  const aiConfig = useConfigStore((s) => s.aiConfig);
+  // stores
+  const projects = useProjectStore((s) => s.projects);
+  const activeProjectId = useProjectStore((s) => s.activeProjectId);
+  const setActiveProject = useProjectStore((s) => s.setActiveProject);
   const setAnalysis = useAnalysisStore((s) => s.setAnalysis);
   const setPlan = usePlanStore((s) => s.setPlan);
   const setScreenplay = useScriptStore((s) => s.setScreenplay);
-  const setProcessing = useEditorStore((s) => s.setProcessing);
+  const screenplay = useScriptStore((s) => s.screenplay);
   const isProcessing = useEditorStore((s) => s.isProcessing);
+  const processingStep = useEditorStore((s) => s.processingStep);
 
-  /** 让 React 有机会渲染一帧——解决页面卡死问题 */
-  const yieldFrame = () => new Promise((r) => setTimeout(r, 0));
+  const activeProject = projects.find((p) => p.id === activeProjectId);
+  const projectTitle = activeProject?.title || '';
+  const analysisForCheck = useAnalysisStore((s) => s.analysis);
+  const planForCheck = usePlanStore((s) => s.plan);
+  const hasData = !!(analysisForCheck || planForCheck || screenplay);
 
-  // ===================== 导入 + 分析 =====================
-  const handleFileImport = useCallback(async (file: File) => {
-    setError(null);
-    setSection('analysis_overview');
-    setProcessing(true, '解析小说');
-    setLoadingMsg('正在解析小说文件...');
-    await yieldFrame();
+  const breadcrumb: BreadcrumbItem[] = deriveBreadcrumb(section, projectTitle);
 
-    try {
-      const novel: ParsedNovel = await parseNovel(file);
-      setLoadingMsg(`已解析 ${novel.chapters.length} 个章节，开始 AI 分析...`);
-      setProcessing(true, 'AI 小说分析（阶段 1/3）');
-      await yieldFrame();
-
-      const novelAnalysis = await analyzeNovel(novel, aiConfig);
-      const validateResult = validate(novelAnalysis, 'novel-analysis');
-      if (!validateResult.valid) console.warn('NovelAnalysis 校验警告:', validateResult.errors);
-
-      setAnalysis(novelAnalysis);
-      saveAnalysis(PROJECT_ID, novelAnalysis);
-      saveProjectMeta({ id: PROJECT_ID, title: novel.title, author: novel.author || '未知', targetMedium: aiConfig.ai_provider, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
-      setProcessing(false);
-      setLoadingMsg('');
-      setSection('analysis_overview');
-    } catch (e) {
-      setError((e as Error).message);
-      setSection('import');
-      setProcessing(false);
+  useEffect(() => {
+    if (projects && projects.length > 0 && !activeProjectId) {
+      const first = projects[0];
+      setActiveProject(first.id);
+      const a = loadAnalysis(first.id);
+      if (a) setAnalysis(a);
+      const p = loadPlan(first.id);
+      if (p) setPlan(p);
+      const s = loadScreenplay(first.id);
+      if (s) setScreenplay(s);
     }
-  }, [aiConfig, setAnalysis, setProcessing]);
+  }, [projects, activeProjectId, setActiveProject, setAnalysis, setPlan, setScreenplay]);
 
-  // ===================== 规划 =====================
-  const handlePlan = useCallback(async () => {
-    if (!analysis) return;
-    setError(null);
-    setSection('plan_overview');
-    setProcessing(true, 'AI 改编规划（阶段 2/3）');
-    setLoadingMsg('AI 正在设计改编方案...');
-    await yieldFrame();
-
-    try {
-      const config = useConfigStore.getState().conversionConfig;
-      const adaptationPlan = await planAdaptation(analysis, config, aiConfig);
-      const validateResult = validate(adaptationPlan, 'adaptation-plan');
-      if (!validateResult.valid) console.warn('AdaptationPlan 校验警告:', validateResult.errors);
-
-      setPlan(adaptationPlan);
-      savePlan(PROJECT_ID, adaptationPlan);
-      setProcessing(false);
-      setLoadingMsg('');
-      setSection('plan_overview');
-    } catch (e) {
-      setError((e as Error).message);
-      setSection('analysis_overview');
-      setProcessing(false);
-    }
-  }, [analysis, aiConfig, setPlan, setProcessing]);
-
-  // ===================== 展开 Beats =====================
-  const handleExpand = useCallback(async () => {
-    if (!plan) return;
-    setError(null);
-    setSection('script_edit');
-    setProcessing(true, 'Beat 展开（阶段 3/3）');
-    setLoadingMsg('AI 正在展开场景 beat...');
-    setExpandProgress({ current: 0, total: plan.scene_plan.length, currentScenes: [] });
-    await yieldFrame();
-
-    try {
-      const concurrency = useConfigStore.getState().concurrency;
-      const screenplayData = await expandBeats(plan, aiConfig, {
-        concurrency,
-        onProgress: (completed, total, currentScenes) => {
-          setExpandProgress({ current: completed, total, currentScenes });
-          setLoadingMsg(`正在展开场景 ${completed}/${total}...`);
-        },
-      });
-
-      const validateResult = validate(screenplayData, 'screenplay');
-      if (!validateResult.valid) console.warn('Screenplay 校验警告:', validateResult.errors);
-
-      setScreenplay(screenplayData);
-      saveScreenplay(PROJECT_ID, screenplayData);
-      setProcessing(false);
-      setLoadingMsg('');
-      setExpandProgress(null);
-      setSection('script_edit');
-    } catch (e) {
-      setError((e as Error).message);
-      setSection('plan_overview');
-      setProcessing(false);
-      setExpandProgress(null);
-    }
-  }, [plan, aiConfig, setScreenplay, setProcessing]);
-
-  // ===================== 导出项目 =====================
   const handleExport = useCallback(() => {
-    const json = exportProjectBundle(PROJECT_ID);
-    const title = analysis?.source_info?.title || plan?.adaptation_strategy?.target_medium || screenplay?.metadata?.title || 'project';
-    downloadFile(json, `${title}-aiscript-bundle.json`, 'application/json');
-  }, [analysis, plan, screenplay]);
+    const json = exportProjectBundle(activeProjectId || 'default');
+    const title = projectTitle || 'project';
+    downloadFile(json, title + '-aiscript-bundle.json', 'application/json');
+  }, [activeProjectId, projectTitle]);
 
-  // ===================== 导入项目 =====================
   const handleImportClick = useCallback(async () => {
     const file = await pickFile('.json');
     if (!file) return;
@@ -166,156 +80,92 @@ export const App: React.FC = () => {
 
   const handleImportConfirm = useCallback(() => {
     if (!importPreview?.valid) return;
-    const meta = importProjectBundle(importRawJson, PROJECT_ID);
-    if (!meta) return;
-
-    const a = loadAnalysis(PROJECT_ID);
-    if (a) setAnalysis(a);
-    const p = loadPlan(PROJECT_ID);
-    if (p) setPlan(p);
-    const s = loadScreenplay(PROJECT_ID);
-    if (s) {
-      setScreenplay(s);
-      setSection('script_edit');
-    } else if (p) {
-      setSection('plan_overview');
-    } else if (a) {
-      setSection('analysis_overview');
-    }
-
+    importProjectBundle(importRawJson, importPreview.projectId);
     setImportPreview(null);
     setImportRawJson('');
-  }, [importPreview, importRawJson, setAnalysis, setPlan, setScreenplay]);
+  }, [importPreview, importRawJson]);
 
   const handleImportCancel = useCallback(() => {
     setImportPreview(null);
     setImportRawJson('');
   }, []);
 
-  // ===================== 路由 =====================
+  const renderPage = () => {
+    if (section === 'import') return <ImportPage onSectionChange={setSection} />;
+    if (section.startsWith('analysis_')) return <AnalysisPage section={section} onSectionChange={setSection} />;
+    if (section.startsWith('plan_')) return <PlanPage section={section} onSectionChange={setSection} />;
+    if (section.startsWith('script_')) return <ScriptPage section={section} onSectionChange={setSection} />;
+    if (section === 'settings') return <SettingsPage onBack={() => setSection(activeProject?.phase === 'scripted' ? 'script_edit' : 'import')} />;
+    return <ImportPage onSectionChange={setSection} />;
+  };
+
+  const statusLeft = screenplay
+    ? screenplay.metadata.title + ' ' + screenplay.acts.reduce((sum, a) => sum + a.scenes.reduce((ss, sc) => ss + sc.beats.length, 0), 0) + ' beats'
+    : projects.length > 0 ? projects.length + ' 个项目' : '尚未导入小说';
+  const statusRight = isProcessing ? '处理中' : '就绪';
 
   return (
     <>
       <AppShell
-        currentSection={section}
+        breadcrumb={breadcrumb}
+        sidebar={
+          <ProjectSidebar
+            currentSection={section}
+            onNavigate={setSection}
+            onExport={handleExport}
+            onImport={handleImportClick}
+            hasProjectData={hasData}
+          />
+        }
+        processing={isProcessing ? { step: processingStep } : undefined}
+        statusBar={{ left: statusLeft, right: statusRight }}
         onNavigate={setSection}
-        onExport={handleExport}
-        onImport={handleImportClick}
-        hasProjectData={!!(analysis || plan || screenplay)}
+        headerActions={
+          <>
+            <button onClick={handleImportClick} style={headerBtn} title="导入项目">
+              导入
+            </button>
+            {hasData && (
+              <button onClick={handleExport} style={headerBtn} title="导出项目">
+                导出
+            </button>
+            )}
+            <button onClick={() => setSection('settings')} style={gearBtn} title="设置">
+              {'\u2699\ufe0f'}
+            </button>
+          </>
+        }
       >
-      {/* ======== 编辑器模式（全宽） ======== */}
-      {section === 'script_edit' && screenplay ? (
-        <Editor />
-      ) : section === 'settings' ? (
-        <div style={{ height: '100%', overflow: 'auto', background: '#f5f5f5', padding: 24 }}>
-          <SettingsPage onBack={() => setSection(analysis ? 'analysis_overview' : plan ? 'plan_overview' : 'import')} />
-        </div>
-      ) : (
-        <div style={{ maxWidth: 960, margin: '0 auto', padding: 24 }}>
-          {/* ======== 错误提示 ======== */}
-          {error && (
-            <div style={errorBar}>
-              <strong>错误：</strong>{error}
-              <button onClick={() => setError(null)} style={{ marginLeft: 12, background: 'transparent', border: 'none', cursor: 'pointer', color: '#c62828', fontWeight: 600 }}>✕</button>
-            </div>
-          )}
+        {renderPage()}
+      </AppShell>
 
-          {/* ======== 导入页 ======== */}
-          {section === 'import' && <ImportCard onImport={handleFileImport} />}
-
-          {/* ======== AI 处理中 ======== */}
-          {isProcessing && (
-            <LoadingStage
-              stage={
-                expandProgress ? 'expanding' :
-                section === 'plan_overview' && loadingMsg ? 'planning' :
-                'analyzing'
-              }
-              message={loadingMsg || '处理中...'}
-              sceneNames={expandProgress?.currentScenes}
-              progress={expandProgress || undefined}
-              concurrency={useConfigStore.getState().concurrency}
-            />
-          )}
-
-          {/* ======== 阶段1: 分析预览 ======== */}
-          {!isProcessing && analysis && (
-            section.startsWith('analysis_') || section === 'import'
-          ) && (
-            <>
-              <AnalysisPreview analysis={analysis} />
-              {!plan && (
-                <div style={{ textAlign: 'center', marginTop: 24 }}>
-                  <button onClick={handlePlan} style={primaryBtn}>→ 开始改编规划（阶段 2/3）</button>
-                </div>
-              )}
-            </>
-          )}
-
-          {/* ======== 阶段2: 规划预览 ======== */}
-          {!isProcessing && plan && (
-            section.startsWith('plan_') || section === 'analysis_overview'
-          ) && (
-            <>
-              <PlanPreview plan={plan} />
-              {!screenplay && (
-                <div style={{ textAlign: 'center', marginTop: 24 }}>
-                  <button onClick={handleExpand} style={primaryBtn}>→ 展开 Beat（阶段 3/3）</button>
-                </div>
-              )}
-            </>
-          )}
-
-          {/* ======== 阶段3: 已有剧本时的提示 ======== */}
-          {!isProcessing && screenplay && section !== 'script_edit' && (
-            <div style={{ textAlign: 'center', padding: 48 }}>
-              <div style={{ fontSize: 48, marginBottom: 16 }}>📝</div>
-              <h3>剧本已生成</h3>
-              <p style={{ color: '#888', marginBottom: 24 }}>点击下方进入编辑器</p>
-              <button onClick={() => setSection('script_edit')} style={primaryBtn}>进入编辑器 →</button>
-            </div>
-          )}
-        </div>
+      {importPreview && (
+        <ImportPreviewDialog
+          preview={importPreview}
+          onConfirm={handleImportConfirm}
+          onCancel={handleImportCancel}
+        />
       )}
-    </AppShell>
-    {/* ======== 导入预览弹窗 ======== */}
-    {importPreview && (
-      <ImportPreviewDialog
-        preview={importPreview}
-        onConfirm={handleImportConfirm}
-        onCancel={handleImportCancel}
-      />
-    )}
-    {screenplay && <ScreenplayPrintView />}
-  </>
+      {screenplay && <ScreenplayPrintView />}
+    </>
   );
 };
 
-// ====================== Sub Components ======================
-
-const ImportCard: React.FC<{ onImport: (file: File) => void }> = ({ onImport }) => (
-  <div
-    onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) onImport(f); }}
-    onDragOver={(e) => e.preventDefault()}
-    style={{ border: '2px dashed #bbb', borderRadius: 12, padding: 56, textAlign: 'center', background: '#fff', cursor: 'pointer' }}
-  >
-    <div style={{ fontSize: 56, marginBottom: 16 }}>📖</div>
-    <h3 style={{ marginTop: 0 }}>导入小说文件</h3>
-    <p style={{ color: '#888', marginBottom: 28 }}>支持 .txt / .docx / .md 格式 · 至少 3 章 · 中文小说</p>
-    <label style={{ padding: '12px 28px', background: '#1976d2', color: '#fff', borderRadius: 8, cursor: 'pointer', fontSize: 15, display: 'inline-block' }}>
-      选择文件
-      <input type="file" accept=".txt,.docx,.md" onChange={(e) => { const f = e.target.files?.[0]; if (f) onImport(f); }} style={{ display: 'none' }} />
-    </label>
-    <p style={{ fontSize: 11, color: '#bbb', marginTop: 14 }}>或拖拽文件到此处</p>
-  </div>
-);
-
-const errorBar: React.CSSProperties = {
-  padding: 12, background: '#ffebee', border: '1px solid #f44336', borderRadius: 8,
-  marginBottom: 16, color: '#c62828', fontSize: 14, display: 'flex', alignItems: 'center',
+const headerBtn: React.CSSProperties = {
+  background: 'transparent',
+  border: '1px solid #d0d0d0',
+  borderRadius: 6,
+  fontSize: 12,
+  cursor: 'pointer',
+  padding: '4px 10px',
+  color: '#555',
 };
 
-const primaryBtn: React.CSSProperties = {
-  padding: '14px 32px', background: '#1976d2', color: '#fff',
-  border: 'none', borderRadius: 8, fontSize: 16, cursor: 'pointer', fontWeight: 600,
+const gearBtn: React.CSSProperties = {
+  background: 'transparent',
+  border: 'none',
+  fontSize: 20,
+  cursor: 'pointer',
+  padding: '4px 8px',
+  borderRadius: 6,
 };
