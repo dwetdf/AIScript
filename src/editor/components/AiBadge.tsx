@@ -6,9 +6,37 @@ import React from 'react';
 
 interface Props {
   isAiGenerated: boolean;
+  mode?: 'inline' | 'gutter';  // gutter = 左侧细线标记（默认）, inline = 旧版彩色 badge
+  sourceRef?: { chapter?: number; paragraph?: number };
 }
 
-export const AiBadge: React.FC<Props> = ({ isAiGenerated }) => {
+export const AiBadge: React.FC<Props> = ({ isAiGenerated, mode = 'gutter', sourceRef }) => {
+  if (mode === 'gutter') {
+    if (!isAiGenerated) {
+      const hint = sourceRef?.chapter
+        ? `原著内容 — Ch.${sourceRef.chapter} ¶${sourceRef.paragraph || '?'}`
+        : '原著内容';
+      return (
+        <span
+          style={{
+            display: 'inline-block',
+            width: 2,
+            minWidth: 2,
+            height: 14,
+            background: '#4caf50',
+            borderRadius: 1,
+            marginTop: 2,
+            flexShrink: 0,
+            cursor: 'help',
+          }}
+          title={hint}
+        />
+      );
+    }
+    return null; // AI 生成的 beat 无标记
+  }
+
+  // inline mode (legacy)
   if (isAiGenerated) {
     return (
       <span
