@@ -20,10 +20,17 @@ export interface ConversionConfig {
   action_detail_level: 'minimal' | 'standard' | 'detailed';
   stage_direction_style: 'concise' | 'descriptive';
   target_medium: 'film' | 'tv_series' | 'web_series' | 'stage_play' | 'audio_drama';
-  genre: string[];
+  /** 目标篇幅 — 粗粒度指引，AI 据此推算场景密度和节奏分配 */
+  target_duration?: 'short' | 'mid' | 'standard' | 'feature' | 'extended';
   tone: 'serious' | 'comedic' | 'dark' | 'lighthearted' | 'epic' | 'intimate' | 'mixed';
+  /** 改编忠实度 — 影响人物取舍、情节删改力度 */
+  adaptation_fidelity: 'faithful' | 'balanced' | 'bold' | 'inspired';
   rating?: 'G' | 'PG' | 'PG_13' | 'R' | 'NC_17' | 'unrated' | 'CN_general' | 'CN_restricted';
   total_episodes?: number;
+  /** 用户自定义补充指令 — 注入到阶段2的 Prompt 中 */
+  custom_instructions?: string;
+  /** 阶段 3 专用补充指令 — 注入到 Beat 展开的 Prompt 中（优先级高于 custom_instructions） */
+  stage3_custom_instructions?: string;
 }
 
 /** Schema 校验结果 */
