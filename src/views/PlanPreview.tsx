@@ -329,117 +329,146 @@ const EditableSceneCardV2: React.FC<{
   onDelete: () => void;
   onAddAfter: () => void;
 }> = ({ scenePlan: sp, onUpdate, onDelete, onAddAfter }) => {
+  const dfColors: Record<string, string> = {
+    inciting_incident: '#e91e63', climax: '#f44336', exposition: '#2196f3',
+    character_moment: '#4caf50', plot_point: '#9c27b0', midpoint: '#ff9800',
+    transition: '#607d8b', action: '#ff5722', other: '#9e9e9e',
+  };
+
   return (
-    <div style={sceneCard}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <div style={{ flex: 1 }}>
-          {/* Row 1: scene number + dramatic function + tension */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
-            <span style={{ fontWeight: 700, fontSize: 13 }}>S{sp.scene_global_number}</span>
-            <FieldDropdown
-              value={sp.dramatic_function}
-              options={[...DF_OPTIONS]}
-              labels={DF_LABELS}
-              onChange={(v) => onUpdate({ dramatic_function: v as ScenePlan['dramatic_function'] })}
-              style={funcBadge(sp.dramatic_function)}
-            />
-            <EditableField
-              label="张力"
-              value={sp.tension_level != null ? String(sp.tension_level) : ''}
-              placeholder="1-5"
-              onChange={(v) => { const n = parseInt(v); if (!isNaN(n) && n >= 1 && n <= 5) onUpdate({ tension_level: n }); }}
-              inputType="number"
-              style={{ width: 30 }}
-            />
-            {sp.tension_level != null && <span style={{ fontSize: 12 }}>{'🔥'.repeat(sp.tension_level)}</span>}
-          </div>
+    <div style={{
+      padding: '14px 16px',
+      border: '1px solid #e8e8e8',
+      borderLeft: `3px solid ${dfColors[sp.dramatic_function] || '#9e9e9e'}`,
+      borderRadius: 6,
+      background: '#fafafa',
+      marginBottom: 6,
+      transition: 'box-shadow 0.15s',
+    }}
+      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.boxShadow = '0 1px 6px rgba(0,0,0,0.08)'; }}
+      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.boxShadow = 'none'; }}
+    >
+      {/* Top row: scene number + dramatic function badge + tension + actions */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{
+            fontWeight: 700, fontSize: 13, color: '#333',
+            background: '#f5f5f5', padding: '1px 8px', borderRadius: 4,
+          }}>S{sp.scene_global_number}</span>
 
-          {/* Row 2: location + time_of_day */}
-          <div style={{ fontSize: 12, color: '#777', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-            <FieldDropdown
-              value={sp.location.interior_exterior}
-              options={[...IE_OPTIONS]}
-              labels={{ INT: 'INT', EXT: 'EXT', INT_EXT: 'I/E' }}
-              onChange={(v) => onUpdate({ location: { ...sp.location, interior_exterior: v as 'INT' | 'EXT' | 'INT_EXT' } })}
-              style={{ fontSize: 11, padding: '1px 4px', borderRadius: 3, border: '1px solid #ccc' }}
-            />
-            <EditableField
-              value={sp.location.name}
-              placeholder="地点名"
-              onChange={(v) => onUpdate({ location: { ...sp.location, name: v } })}
-              style={{ fontWeight: 500 }}
-            />
-            <span>—</span>
-            <EditableField
-              value={sp.time_of_day}
-              placeholder="时间"
-              onChange={(v) => onUpdate({ time_of_day: v })}
-              style={{ width: 60 }}
-            />
-            {sp.location.set_description != null && (
-              <EditableField
-                value={sp.location.set_description || ''}
-                placeholder="布景"
-                onChange={(v) => onUpdate({ location: { ...sp.location, set_description: v || undefined } })}
-                style={{ color: '#aaa', fontSize: 11, minWidth: 80 }}
-                prefix="("
-                suffix=")"
-              />
-            )}
-          </div>
+          <FieldDropdown
+            value={sp.dramatic_function}
+            options={[...DF_OPTIONS]}
+            labels={DF_LABELS}
+            onChange={(v) => onUpdate({ dramatic_function: v as ScenePlan['dramatic_function'] })}
+            style={{
+              fontSize: 10, padding: '2px 8px', borderRadius: 4, color: '#fff',
+              background: dfColors[sp.dramatic_function] || '#9e9e9e', fontWeight: 600, cursor: 'pointer',
+            }}
+          />
 
-          {/* Row 3: synopsis */}
-          <div style={{ fontSize: 12, color: '#555', lineHeight: 1.4, marginBottom: 4 }}>
+          {sp.tension_level != null ? (
+            <span style={{ fontSize: 12, letterSpacing: 1 }} title={`张力 ${sp.tension_level}/5`}>
+              {'🔥'.repeat(sp.tension_level)}{'⚪'.repeat(5 - sp.tension_level)}
+            </span>
+          ) : (
             <EditableField
-              value={sp.synopsis}
-              placeholder="场景概要（双击编辑）"
-              onChange={(v) => onUpdate({ synopsis: v })}
-              isTextarea
-              style={{ width: '100%' }}
+              value="" placeholder="张力1-5" onChange={(v) => { const n = parseInt(v); if (n >= 1 && n <= 5) onUpdate({ tension_level: n }); }}
+              inputType="number" style={{ width: 30, fontSize: 11, color: '#ccc' }}
             />
-          </div>
-
-          {/* Row 4: characters */}
-          <div style={{ fontSize: 11, color: '#999', marginBottom: 4 }}>
-            出场:{' '}
-            <EditableField
-              value={sp.characters_present?.join(', ') || ''}
-              placeholder="角色ID，逗号分隔"
-              onChange={(v) => onUpdate({ characters_present: v ? v.split(',').map(s => s.trim()).filter(Boolean) : undefined })}
-              style={{ minWidth: 120 }}
-            />
-          </div>
-
-          {/* Row 5: beat plan */}
-          {sp.beat_plan && (
-            <div style={{ marginTop: 6, fontSize: 11, color: '#1976d2', display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-              <span>📋</span>
-              <EditableField
-                label="beats"
-                value={sp.beat_plan.estimated_beat_count != null ? String(sp.beat_plan.estimated_beat_count) : ''}
-                placeholder="?"
-                onChange={(v) => onUpdate({ beat_plan: { ...(sp.beat_plan || { key_beats: [], notes: '' }), estimated_beat_count: v ? parseInt(v) : undefined } })}
-                inputType="number"
-                style={{ width: 30 }}
-              />
-              <span>beats · 🔑 {sp.beat_plan.key_beats?.length || 0} 关键</span>
-              <EditableField
-                label="备注"
-                value={sp.beat_plan.notes || ''}
-                placeholder="特殊说明"
-                onChange={(v) => onUpdate({ beat_plan: { ...(sp.beat_plan || { key_beats: [] }), notes: v } })}
-                style={{ minWidth: 100, color: '#888' }}
-              />
-            </div>
           )}
         </div>
 
-        {/* Actions */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <button onClick={onAddAfter} style={iconBtnSmall} title="在下方添加场景">+</button>
+        <div style={{ display: 'flex', gap: 4 }}>
+          <button onClick={onAddAfter} style={iconBtnSmall} title="在下方添加场景">＋</button>
           <button onClick={onDelete} style={iconBtnSmall} title="删除场景">🗑</button>
         </div>
       </div>
+
+      {/* Location line */}
+      <div style={{
+        fontSize: 12, color: '#666', marginBottom: 6,
+        display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap',
+        padding: '4px 8px', background: '#fff', borderRadius: 4, border: '1px solid #f0f0f0',
+      }}>
+        <FieldDropdown
+          value={sp.location.interior_exterior}
+          options={[...IE_OPTIONS]}
+          labels={{ INT: '内景', EXT: '外景', INT_EXT: '内外' }}
+          onChange={(v) => onUpdate({ location: { ...sp.location, interior_exterior: v as 'INT' | 'EXT' | 'INT_EXT' } })}
+          style={{
+            fontSize: 10, padding: '1px 6px', borderRadius: 3,
+            background: sp.location.interior_exterior === 'INT' ? '#e3f2fd' : sp.location.interior_exterior === 'EXT' ? '#fff3e0' : '#f3e5f5',
+            color: sp.location.interior_exterior === 'INT' ? '#1565c0' : sp.location.interior_exterior === 'EXT' ? '#e65100' : '#7b1fa2',
+            fontWeight: 600, cursor: 'pointer',
+          }}
+        />
+        <EditableField
+          value={sp.location.name} placeholder="地点名"
+          onChange={(v) => onUpdate({ location: { ...sp.location, name: v } })}
+          style={{ fontWeight: 600, color: '#333' }}
+        />
+        <span style={{ color: '#ccc' }}>·</span>
+        <EditableField
+          value={sp.time_of_day} placeholder="时间"
+          onChange={(v) => onUpdate({ time_of_day: v })}
+          style={{ width: 60, color: '#666' }}
+        />
+        {sp.location.set_description != null && (
+          <EditableField
+            value={sp.location.set_description || ''} placeholder="布景"
+            onChange={(v) => onUpdate({ location: { ...sp.location, set_description: v || undefined } })}
+            style={{ color: '#aaa', fontSize: 11 }}
+            prefix="(" suffix=")"
+          />
+        )}
+      </div>
+
+      {/* Synopsis */}
+      <div style={{ fontSize: 13, color: '#444', lineHeight: 1.5, marginBottom: 6 }}>
+        <EditableField
+          value={sp.synopsis} placeholder="场景概要（双击编辑）"
+          onChange={(v) => onUpdate({ synopsis: v })}
+          isTextarea
+          style={{ width: '100%' }}
+        />
+      </div>
+
+      {/* Characters */}
+      <div style={{ fontSize: 11, color: '#888', marginBottom: 4 }}>
+        <span style={{ marginRight: 4 }}>👤</span>
+        <EditableField
+          value={sp.characters_present?.join(', ') || ''}
+          placeholder="角色ID，逗号分隔"
+          onChange={(v) => onUpdate({ characters_present: v ? v.split(',').map(s => s.trim()).filter(Boolean) : undefined })}
+          style={{ minWidth: 100 }}
+        />
+      </div>
+
+      {/* Beat plan info */}
+      {sp.beat_plan && (
+        <div style={{
+          marginTop: 4, padding: '6px 8px', background: '#f8f9ff',
+          borderRadius: 4, border: '1px solid #e3e8f5',
+          fontSize: 11, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
+        }}>
+          <span style={{ color: '#1976d2', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
+            📋
+            <EditableField
+              value={sp.beat_plan.estimated_beat_count != null ? String(sp.beat_plan.estimated_beat_count) : ''}
+              placeholder="?" onChange={(v) => onUpdate({ beat_plan: { ...(sp.beat_plan || { key_beats: [], notes: '' }), estimated_beat_count: parseInt(v) || undefined } })}
+              inputType="number" style={{ width: 30 }}
+            />
+            beats
+          </span>
+          <span style={{ color: '#888' }}>· 🔑 {sp.beat_plan.key_beats?.length || 0} 关键节拍</span>
+          <EditableField
+            value={sp.beat_plan.notes || ''}
+            placeholder="备注..." onChange={(v) => onUpdate({ beat_plan: { ...(sp.beat_plan || { key_beats: [] }), notes: v } })}
+            style={{ color: '#999', fontStyle: 'italic', minWidth: 80 }}
+          />
+        </div>
+      )}
     </div>
   );
 };
