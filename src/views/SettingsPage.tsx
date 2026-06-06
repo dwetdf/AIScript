@@ -7,8 +7,9 @@ import React, { useState } from 'react';
 import { useConfigStore } from '@/store';
 import {
   AI_PROVIDERS, AI_PROVIDER_LABELS, AI_MODELS,
+  DEFAULT_AI_CONFIG, DEFAULT_CONVERSION_CONFIG,
 } from '@/shared/constants';
-import { getApiKey, setApiKey } from '@/shared/ai-config';
+import { getApiKey, setApiKey, saveAiConfig } from '@/shared/ai-config';
 import type { AiConfig } from '@/schema/types';
 
 type Tab = 'ai' | 'about';
@@ -56,7 +57,7 @@ export const SettingsPage: React.FC<Props> = ({ onBack }) => {
         ))}
       </div>
 
-      {/* Tab Content */}
+	      {/* Tab Content */}
       <div style={{ background: '#fff', border: '1px solid #e8e8e8', borderRadius: 8, padding: 24 }}>
         {tab === 'ai' && <AiEngineTab />}
         {tab === 'about' && <AboutTab />}
@@ -68,7 +69,7 @@ export const SettingsPage: React.FC<Props> = ({ onBack }) => {
 // ===================== AI 引擎 Tab =====================
 
 const AiEngineTab: React.FC = () => {
-  const { aiConfig, setAiConfig } = useConfigStore();
+  const { aiConfig, setAiConfig, setProjectConfig } = useConfigStore();
   const [apiKeys, setApiKeys] = useState<Record<string, string>>(() => {
     const keys: Record<string, string> = {};
     for (const p of AI_PROVIDERS) keys[p] = getApiKey(p) || '';
@@ -90,6 +91,49 @@ const AiEngineTab: React.FC = () => {
   return (
     <div>
       {saved && <div style={{ padding: '6px 12px', background: '#e8f5e9', color: '#2e7d32', borderRadius: 4, marginBottom: 12, fontSize: 13 }}>✅ API Key 已保存</div>}
+
+      {/* 重置为默认值 */}
+      <div style={{ marginTop: 24, padding: 16, background: '#fafafa', borderRadius: 8, border: '1px solid #e8e8e8' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <h4 style={{ margin: 0, fontSize: 13, color: '#333' }}>⚙️ 重置所有配置</h4>
+            <p style={{ margin: '4px 0 0', fontSize: 11, color: '#999' }}>
+              将 AI 配置、API Key、转换参数重置为应用默认值
+            </p>
+          </div>
+          <button
+            onClick={() => {
+              if (!confirm('确认重置所有配置为默认值？此操作不可撤销。')) return;
+              // 重置 AI 配置
+              setAiConfig({ ...DEFAULT_AI_CONFIG } as Partial<AiConfig>);
+              saveAiConfig(DEFAULT_AI_CONFIG);
+              // 重置转换配置（清除所有项目的配置缓存 + 重置 localStorage 中的默认）
+              // 注意：setProjectConfig 需要 projectId，但这里只做全局重置
+              // 直接清除 localStorage 中存储的项目配置
+              try {
+                const keys = Object.keys(localStorage).filter((k) => k.startsWith('aiscript_project_conversion_'));
+                keys.forEach((k) => localStorage.removeItem(k));
+              } catch { /* ignore */ }
+              // 清除所有 API Key
+              const emptyKeys: Record<string, string> = {};
+              for (const p of AI_PROVIDERS) {
+                setApiKey(p, '');
+                emptyKeys[p] = '';
+              }
+              setApiKeys(emptyKeys);
+              setSaved(true);
+              setTimeout(() => setSaved(false), 1500);
+            }}
+            style={{
+              padding: '8px 20px', background: '#fff', color: '#f44336',
+              border: '1px solid #f44336', borderRadius: 6, cursor: 'pointer',
+              fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap',
+            }}
+          >
+            🔄 重置为默认值
+          </button>
+        </div>
+      </div>
 
       {/* SSL警告 */}
       <div style={{ padding: '8px 12px', background: '#fff3e0', border: '1px solid #ffe0b2', borderRadius: 6, marginBottom: 16, fontSize: 12, color: '#e65100' }}>

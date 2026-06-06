@@ -105,7 +105,11 @@ export const BeatLine: React.FC<Props> = ({ beat, index, sceneGlobalNumber, tota
       {/* Content */}
       <div style={{ flex: 1, minWidth: 0 }}>
         {isEditing ? (
-          <EditableContent beat={beat} characters={screenplay?.characters || []} onSave={() => setEditingBeatId(null)} />
+          <EditableContent
+            beat={beat}
+            characters={screenplay?.characters || []}
+            onSave={() => setEditingBeatId(null)}
+          />
         ) : (
           <RenderedContent beat={beat} />
         )}
