@@ -150,7 +150,6 @@ const novelAnalysisSchema: Record<string, unknown> = {
           chapter_number: { type: 'integer', minimum: 1 },
           chapter_title: { type: 'string' },
           summary: { type: 'string' },
-          raw_passages: { type: 'array', items: { type: 'object' } },
         },
       },
     },

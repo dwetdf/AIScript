@@ -74,8 +74,8 @@ const analysis: NovelAnalysis = {
     summary: `${ch.title ?? ''}，${ch.paragraphs.length} 段`,
     paragraph_count: ch.paragraphs.length,
     adaptation_potential: 'high' as const,
-    raw_passages: ch.paragraphs.map((p) => ({ paragraph: p.index, text: p.text, significance: 'major' as const })),
   })),
+  curated_passages: [],
   generated_at: new Date().toISOString(),
 };
 

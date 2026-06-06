@@ -192,43 +192,51 @@ async function generateEpisodeAndScenePlan(
   };
 }
 
-/** 从 raw_passages 提取场景对应的原文上下文 (F27) */
+/** 从 curated_passages 提取场景对应的原文上下文 (F27) */
 function extractSourceContext(
   analysis: NovelAnalysis,
   scenePlan: { source_chapter_ref?: string; synopsis: string; characters_present?: string[] }
 ): SourceContext | undefined {
-  // 找到对应的章节
+  // 找到对应的章节号
   const chapterRef = scenePlan.source_chapter_ref;
   const chapterNum = chapterRef ? parseInt(chapterRef.replace(/[^0-9]/g, ''), 10) || 1 : 1;
 
   const chapter = analysis.chapter_summaries.find(
     (cs) => cs.chapter_number === chapterNum
   );
-  if (!chapter || !chapter.raw_passages.length) return undefined;
 
-  // 从 synopsis 中提取关键词
-  const synopsisWords = scenePlan.synopsis.split(/[，。、；\s]+/).filter((w) => w.length > 1);
+  // 从 curated_passages 按章节 + 人物精确查找（AI 精选，无需关键词匹配）
+  const curated = analysis.curated_passages || [];
+  const relevant = curated.filter((cp) => {
+    if (cp.source_chapter !== chapterNum) return false;
+    // 有人物交集时过滤，无人物的场景（如场景过渡）保留全部
+    if (scenePlan.characters_present?.length && cp.characters_involved?.length) {
+      return cp.characters_involved.some((c) =>
+        scenePlan.characters_present!.some(
+          (sp) => sp.includes(c) || c.includes(sp)
+        )
+      );
+    }
+    return true;
+  });
 
-  // 匹配相关段落
-  const matchedPassages = chapter.raw_passages.filter((rp) =>
-    synopsisWords.some((word) => rp.text.includes(word))
+  const dialogues = relevant.filter((cp) => cp.passage_type === 'dialogue');
+  const actions = relevant.filter(
+    (cp) => cp.passage_type === 'action' || cp.passage_type === 'character_moment'
   );
-
-  const dialogues = matchedPassages.filter((rp) => rp.type === 'dialogue');
-  const actions = matchedPassages.filter((rp) => rp.type === 'action' || rp.type === 'mixed');
-  const descriptions = matchedPassages.filter((rp) => rp.type === 'description' || rp.type === 'narrative');
+  const descriptions = relevant.filter((cp) => cp.passage_type === 'description');
 
   return {
-    summary: chapter.summary,
-    key_dialogues: dialogues.map((d) => ({
-      speaker: (d.speakers?.[0]) || '未知',
-      text: d.text.substring(0, 200),
+    summary: chapter?.summary || '',
+    key_dialogues: dialogues.slice(0, 8).map((d) => ({
+      speaker: d.characters_involved?.[0] || '未知',
+      text: d.text,
     })),
-    key_actions: actions.map((a) => ({ description: a.text.substring(0, 200) })),
-    key_descriptions: descriptions.map((d) => d.text.substring(0, 200)),
-    adaptation_notes: `本场景基于第${chapterNum}章。${
-      matchedPassages.find((p) => p.adaptation_hint)?.adaptation_hint || ''
-    }`,
+    key_actions: actions.slice(0, 5).map((a) => ({
+      description: a.text,
+    })),
+    key_descriptions: descriptions.slice(0, 5).map((d) => d.text),
+    adaptation_notes: `基于第${chapterNum}章，${relevant.length}条AI精选原文参考`,
   };
 }
 

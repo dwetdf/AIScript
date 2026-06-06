@@ -201,26 +201,31 @@ adaptation-plan.adaptation_strategy.structural_decisions[]
 
 **为什么需要：** 为后续的 `source_ref` 溯源提供索引。每个章节的 `paragraph_count` 是段落索引的范围上限，`adaptation_potential`（high/medium/low/skip）帮助改编规划决定各章节的取舍优先级。
 
-##### raw_passages：原文数据管道的起点
+##### curated_passages：AI 精选原文管道
 
-**为什么需要：** 这是三层防漂移机制的第一层。阶段 1 如果不能完整传递原文信息，阶段 2 和阶段 3 就无从溯源。
+**为什么需要：** 这是三层防漂移机制的第一层。阶段 1 通过 Tier 1 逐章 AI 分析主动标记高价值原文片段，替代旧版 `raw_passages` 的全量原文存储。
 
-`raw_passages[]` 以段落为粒度存储原文正文，每个段落附带：
-- `paragraph`：序号，对应 `source_ref.paragraph`
-- `type`：段落类型（dialogue/action/description/narrative/internal_monologue），指导阶段 2 如何分类处理
-- `significance`：critical/major/minor，指导阶段 2 决定取舍优先级
-- `adaptation_hint`：预判的改编提示，如"此段为内心独白需外化为对白"
+`curated_passages[]` 以 AI 精选片段为粒度，每条包含：
+- `text`：原文摘录（≤200 字），聚焦最有改编价值的片段
+- `passage_type`：dialogue / action / description / character_moment，指导阶段 2 分类处理
+- `characters_involved`：关联人物，支持阶段 2 按人物精确查找
+- `source_chapter` / `source_paragraph`：溯源定位
+- `why_valuable`：AI 标注的保留理由（如"展示人物紧张时的习惯动作"）
 
-阶段 2 的 Planner 从 `raw_passages` 中提取对应的段落，组装成 `source_context`（key_dialogues、key_actions、key_descriptions），阶段 3 的 Converter 将 `source_context` 与 `beat_plan` 一起注入 Prompt。
+阶段 2 的 Planner 从 `curated_passages` 中按章节+人物精确查找，组装成 `source_context`（key_dialogues、key_actions、key_descriptions），阶段 3 的 Converter 将 `source_context` 与 `beat_plan` 一起注入 Prompt。
+
+与旧版 `raw_passages` 的区别：
+- **raw_passages**：全量原文存储 → 体积大、阶段 2 用关键词匹配提取（不可靠）
+- **curated_passages**：AI 精选片段 → 体积小（~5%）、阶段 2 按结构化字段精确查找（可靠）
 
 数据流：
 ```
-novel_analysis.chapter_summaries[].raw_passages[]   (原文全文)
-  →  Planner 从中提取对应段落
+novel_analysis.curated_passages[]   (AI 精选原文片段)
+  →  Planner 按章节+人物精确查找
     →  adaptation_plan.scene_plan[].source_context   (场景级原文片段)
       →  Converter 注入 Prompt
         →  screenplay.beats[]  (基于原文而非凭空生成)
-          →  screenplay.beats[].source_ref  (精准溯源到 raw_passages[].paragraph)
+          →  screenplay.beats[].source_ref  (精准溯源到原文段落)
 ```
 
 ### 2.3 Novel Analysis 不是 Screenplay 的一部分
@@ -270,13 +275,15 @@ Adaptation Plan 中 `scene_plan[]` 的每个对象定义到**场景大纲**级�
 
 分级架构的固有风险：阶段 1→2→3，每一层都在抽象。到阶段 3 beat 展开时，AI 的输入如果只有 `scene_plan.synopsis`（一句话）和 `beat_plan.key_beats[].description`（更短的一句话），它看不到原文。这会导致逐层漂移——最后生成的 beat 可能与原著毫无关系。
 
-`s-source_context` 在 Adaptation Plan 的每个场景中存储"该场景对应的原著原文关键片段"：
+`source_context` 在 Adaptation Plan 的每个场景中存储"该场景对应的原著原文关键片段"：
 
 - `summary`：比 synopsis 更详细的原文概述，准确还原情节细节
-- `key_dialogues[]`：原著中该段的实际对白原文，带上下文说明。AI 基于原文改写，而非凭空编造
+- `key_dialogues[]`：原著中该段的实际对白原文。AI 基于原文改写，而非凭空编造
 - `key_actions[]`：原著中该段的关键动作描写。AI 可以直接改编为 action beat
 - `key_descriptions[]`：原著中该段的环境/气氛描写。AI 可以压缩改编为 action beat 的布景部分
-- `adaptation_notes`：针对该场景的改编注意事项（内心独白外化方式、压缩策略等）
+- `adaptation_notes`：针对该场景的改编注意事项
+
+数据来源：阶段 2 的 Planner 从 `NovelAnalysis.curated_passages[]`（阶段 1 AI 精选原文片段）中按 `source_chapter` + `characters_involved` 精确查找，不再使用关键词匹配。
 
 阶段 3 beat 展开时，这个完整的 `source_context` 对象连同 `beat_plan` 一起注入 Prompt。AI 的输出不再是"基于一句话梗概编造"，而是"基于原文片段改编"。
 

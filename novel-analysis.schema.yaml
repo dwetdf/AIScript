@@ -466,48 +466,47 @@ properties:
             - low: 过渡性内容，可大幅压缩
             - skip: 可考虑整章跳过（如纯说明性章节）
 
-        raw_passages:
-          type: array
+  # ---------------------------------------------------------------------------
+  # curated_passages — AI 精选原文片段
+  # ---------------------------------------------------------------------------
+  curated_passages:
+    type: array
+    description: >
+      AI 在逐章分析时主动标记的高价值原文片段（每章 5-15 条，每条 ≤200 字）。
+      替代旧版 raw_passages 的全量原文存储。
+      阶段 2 的 source_context 和阶段 3 的 source_ref 都从这里按章节+人物精确查找。
+    items:
+      type: object
+      required:
+        - text
+        - passage_type
+        - source_chapter
+      properties:
+        text:
+          type: string
+          description: 原文摘录（≤200 字）
+          maxLength: 500
+        passage_type:
+          type: string
+          enum: [dialogue, action, description, character_moment]
           description: >
-            原文关键段落集合。以段落为粒度存储原文正文。
-            每个段落用其在章节内的序号（从 1 开始）标识，
-            用于精确定位和后续 source_ref 的 paragraph 字段。
-            这是整个流水线的"原文数据源"——阶段 2 的 source_context
-            和阶段 3 的 source_ref 都从这里提取。
+            片段类型：dialogue(对白) / action(动作) / description(环境描写) / character_moment(人物细节时刻)
+        characters_involved:
+          type: array
+          description: 关联的人物名
           items:
-            type: object
-            required:
-              - paragraph
-              - text
-            properties:
-              paragraph:
-                type: integer
-                minimum: 1
-                description: 段落序号（在章节内从 1 开始），对应 source_ref.paragraph
-              text:
-                type: string
-                description: 段落原文完整文本
-              type:
-                type: string
-                enum: [narrative, dialogue, mixed, description, action, internal_monologue]
-                description: >
-                  段落类型：narrative(叙述) / dialogue(对白) / mixed(混合) /
-                  description(描写) / action(动作) / internal_monologue(内心独白)
-              speakers:
-                type: array
-                description: 本段落中说话的人物 character_id 列表
-                items:
-                  type: string
-              significance:
-                type: string
-                enum: [critical, major, minor]
-                description: >
-                  critical: 核心情节段落不可偏离 /
-                  major: 可适度改写 /
-                  minor: 可大幅压缩或跳过
-              adaptation_hint:
-                type: string
-                description: 改编提示（如"此段为内心独白需外化为对白"）
+            type: string
+        source_chapter:
+          type: integer
+          minimum: 1
+          description: 所属章节号
+        source_paragraph:
+          type: integer
+          minimum: 1
+          description: 段落序号（章节内从 1 开始）
+        why_valuable:
+          type: string
+          description: AI 标注的保留理由（如"展示人物紧张时的习惯动作"）
 
   # ---------------------------------------------------------------------------
   # ai_config — AI 引擎配置
@@ -610,24 +609,17 @@ examples:
         locations: ["死牢", "靖安司"]
         paragraph_count: 45
         adaptation_potential: "high"
-        raw_passages:
-          - paragraph: 1
-            text: "天宝三年的长安，上元节前夕，满城张灯结彩。然而靖安司的密室里，却弥漫着一股肃杀之气。"
-            type: "description"
-            significance: "major"
-          - paragraph: 2
-            text: "李泌将一份密报推到烛光下，手指点了点上面的名字。'狼卫已经进来了。'他对面前的徐宾说道，声音压得极低。"
-            type: "dialogue"
-            speakers: ["li_bi"]
-            significance: "critical"
-          - paragraph: 3
-            text: "徐宾面色一白。'多少人？''至少五个。他们的目标是上元节当天的——'李泌没有说完，但他手指的方向已经说明了一切。"
-            type: "dialogue"
-            speakers: ["li_bi", "xu_bin"]
-            significance: "critical"
-          - paragraph: 4
-            text: "一阵沉默后，李泌站直了身体。'去死牢。'他说，'把那个人提出来。'"
-            type: "action"
-            significance: "critical"
-            adaptation_hint: "此段心理张力强，改编时需保留沉默的节奏和李泌决策的艰难感"
+    curated_passages:
+      - text: "李泌将一份密报推到烛光下，手指点了点上面的名字。'狼卫已经进来了。'他对面前的徐宾说道，声音压得极低。"
+        passage_type: "dialogue"
+        characters_involved: ["李泌", "徐宾"]
+        source_chapter: 1
+        source_paragraph: 2
+        why_valuable: "首次揭示核心威胁，李泌的冷静与徐宾的紧张形成对比"
+      - text: "一阵沉默后，李泌站直了身体。'去死牢。'他说，'把那个人提出来。'"
+        passage_type: "action"
+        characters_involved: ["李泌"]
+        source_chapter: 1
+        source_paragraph: 4
+        why_valuable: "关键决策时刻，沉默的节奏和决策的艰难感需在改编中保留"
 

@@ -185,16 +185,10 @@ export const DEFAULT_PER_ACT_CONCURRENCY = 3;
 /** Beat 展开最大并发数（防止触发 API 限流） */
 export const MAX_BEAT_EXPANSION_CONCURRENCY = 10;
 
-// ============================== 分块分析 ==============================
+// ============================== 阶段 1 双层并行分析 ==============================
 
-/** 阶段 1 分块分析：每块包含的章节数 */
-export const DEFAULT_CHUNK_SIZE = 5;
-
-/** 阶段 1 分块分析：并行处理块的最大并发数 */
-export const DEFAULT_STAGE1_CONCURRENCY = 4;
-
-/** 分块分析的触发阈值：章节数 > 此值才分块 */
-export const CHUNK_THRESHOLD = 3;
+/** Tier 1 逐章并行分析的默认并发数（flash 模型，并发上限高） */
+export const DEFAULT_TIER1_CONCURRENCY = 8;
 
 /** 阶段 1 单次/分块 API 调用超时时间 (ms) */
 export const STAGE1_API_TIMEOUT_MS = 120_000;
