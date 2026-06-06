@@ -11,19 +11,32 @@ import { buildEpisodePlanPrompt } from './prompt-templates/episode-plan';
 
 /**
  * 阶段 2 主入口：基于小说分析结果生成改编规划
+ *
+ * @param analysis 小说分析产物
+ * @param config 转换配置
+ * @param aiConfig AI 配置
+ * @param options 可选：进度回调 + 中断信号
  */
 export async function planAdaptation(
   analysis: NovelAnalysis,
   config: ConversionConfig,
-  aiConfig: AiConfig
+  aiConfig: AiConfig,
+  options?: {
+    onProgress?: (step: 'strategy' | 'episode', done: boolean) => void;
+    signal?: AbortSignal;
+  }
 ): Promise<AdaptationPlan> {
   // Step 1: 改编策略生成 (F19-F24)
-  const strategy = await generateAdaptationStrategy(analysis, config, aiConfig);
+  options?.onProgress?.('strategy', false);
+  const strategy = await generateAdaptationStrategy(analysis, config, aiConfig, options?.signal);
+  options?.onProgress?.('strategy', true);
 
   // Step 2: 幕结构 + 场景大纲生成 (F25-F28)
+  options?.onProgress?.('episode', false);
   const { episodePlan, scenePlan } = await generateEpisodeAndScenePlan(
-    analysis, strategy, config, aiConfig
+    analysis, strategy, config, aiConfig, options?.signal
   );
+  options?.onProgress?.('episode', true);
 
   // Step 3: 人物表初稿 (F29) — 从 NovelAnalysis 直接映射
   const charactersDraft = buildCharactersDraft(analysis.character_analysis);
@@ -53,7 +66,8 @@ export async function planAdaptation(
 async function generateAdaptationStrategy(
   analysis: NovelAnalysis,
   config: ConversionConfig,
-  aiConfig: AiConfig
+  aiConfig: AiConfig,
+  signal?: AbortSignal
 ): Promise<AdaptationStrategy> {
   const analysisSummary = prepareAnalysisSummary(analysis);
   const prompt = buildAdaptationStrategyPrompt(analysisSummary, config);
@@ -71,7 +85,7 @@ async function generateAdaptationStrategy(
       { role: 'user', content: prompt },
     ],
     aiConfig,
-    { temperature: 0.5, maxTokens: 8192 }
+    { temperature: 0.5, maxTokens: 8192, signal }
   );
 
   return {
@@ -94,7 +108,8 @@ async function generateEpisodeAndScenePlan(
   analysis: NovelAnalysis,
   strategy: AdaptationStrategy,
   config: ConversionConfig,
-  aiConfig: AiConfig
+  aiConfig: AiConfig,
+  signal?: AbortSignal
 ): Promise<{
   episodePlan: AdaptationPlan['episode_plan'];
   scenePlan: ScenePlan[];
@@ -137,7 +152,7 @@ async function generateEpisodeAndScenePlan(
       { role: 'user', content: prompt },
     ],
     aiConfig,
-    { temperature: 0.5, maxTokens: 16384 }
+    { temperature: 0.5, maxTokens: 16384, signal }
   );
 
   // 为每个 scene_plan 填充 source_context

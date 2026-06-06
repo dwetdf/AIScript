@@ -1,31 +1,59 @@
 // ============================================================================
 // 小说分析流程编排 — 阶段 1：ParsedNovel → NovelAnalysis (F7-F18)
+// v0.4.0: 支持分块分析（>3 章自动分块）+ 进度回调 + 可中断
 // ============================================================================
 
 import type { NovelAnalysis, AiConfig, KeyEvent, PlotAnalysis, CharacterAnalysis, ChapterSummary, RawPassage, CharacterRelation } from '../schema/types';
-import { SCHEMA_VERSIONS } from '../shared/constants';
+import { SCHEMA_VERSIONS, CHUNK_THRESHOLD } from '../shared/constants';
 import { generateCharacterId } from '../shared/id-generator';
-import { chatCompletionJson, chatCompletion } from '../api/client';
+import { chatCompletionJson } from '../api/client';
 import type { ParsedNovel, ChapterData } from '../parser';
 import { buildFullAnalysisPrompt, buildNovelText } from './prompt-templates/full-analysis';
+import { chunkedAnalyze, type ChunkedAnalyzerOptions } from './chunked-analyzer';
 
 /**
  * 阶段 1 主入口：将小说文本分析为 NovelAnalysis
  *
  * @param novel 解析后的小说
  * @param aiConfig AI 配置
+ * @param options 可选：分块大小 / 并发数 / 进度回调 / 中断信号
  * @returns 完整的 NovelAnalysis 对象
  */
 export async function analyzeNovel(
   novel: ParsedNovel,
-  aiConfig: AiConfig
+  aiConfig: AiConfig,
+  options?: {
+    chunkSize?: number;
+    concurrency?: number;
+    onProgress?: (chunk: number, totalChunks: number, label: string) => void;
+    signal?: AbortSignal;
+  }
+): Promise<NovelAnalysis> {
+  // 章节数 ≤ 阈值 → 不分块，直接一次调用（兼容小体量）
+  if (novel.chapters.length <= CHUNK_THRESHOLD) {
+    return analyzeSingleCall(novel, aiConfig, options?.signal);
+  }
+
+  // 章节数 > 阈值 → 分块分析（Map-Reduce）
+  return chunkedAnalyze(novel, aiConfig, {
+    chunkSize: options?.chunkSize,
+    concurrency: options?.concurrency,
+    onProgress: options?.onProgress,
+    signal: options?.signal,
+  });
+}
+
+/**
+ * 单次调用分析（3 章以下，不分块）
+ */
+async function analyzeSingleCall(
+  novel: ParsedNovel,
+  aiConfig: AiConfig,
+  signal?: AbortSignal
 ): Promise<NovelAnalysis> {
   const novelText = buildNovelText(novel);
-
-  // 调用 AI 进行综合小说分析
   const prompt = buildFullAnalysisPrompt(novelText);
 
-  // AI 返回的结构化分析
   const aiResult = await chatCompletionJson<{
     theme_analysis: NovelAnalysis['theme_analysis'];
     world_building: NovelAnalysis['world_building'];
@@ -67,11 +95,54 @@ export async function analyzeNovel(
       { role: 'user', content: prompt },
     ],
     aiConfig,
-    { temperature: 0.5, maxTokens: 16384 }
+    { temperature: 0.5, maxTokens: 16384, signal }
   );
 
-  // 构建完整的 NovelAnalysis
-  const analysis: NovelAnalysis = {
+  return buildAnalysis(novel, aiResult, aiConfig);
+}
+
+/** 构建完整的 NovelAnalysis（复用逻辑） */
+function buildAnalysis(
+  novel: ParsedNovel,
+  aiResult: {
+    theme_analysis: NovelAnalysis['theme_analysis'];
+    world_building: NovelAnalysis['world_building'];
+    plot_analysis: {
+      main_plot: { description: string; stakes: string };
+      sub_plots?: Array<{ description: string; connection_to_main: string; key_characters?: string[] }>;
+      core_conflict: PlotAnalysis['core_conflict'];
+      key_events: Array<{ event: string; chapter: number; description: string; dramatic_function?: string }>;
+      narrative_structure?: Record<string, unknown>;
+    };
+    character_analysis: Array<{
+      name: string;
+      aliases?: string[];
+      role: string;
+      importance: string;
+      identity?: string;
+      motivation?: { external: string; internal: string };
+      character_arc?: string;
+      relationships?: Array<{ target: string; type: string; description: string; dynamics?: string }>;
+      distinctive_traits?: {
+        speech_style?: string;
+        catchphrases?: string[];
+        habits?: string[];
+        appearance?: string;
+      };
+      adaptability_notes?: string;
+    }>;
+    chapter_summaries: Array<{
+      chapter_number: number;
+      summary: string;
+      key_events?: string[];
+      characters_appeared?: string[];
+      locations?: string[];
+      adaptation_potential?: string;
+    }>;
+  },
+  aiConfig: AiConfig
+): NovelAnalysis {
+  return {
     schema_version: SCHEMA_VERSIONS['novel-analysis'],
     source_info: {
       title: novel.title,
@@ -93,8 +164,6 @@ export async function analyzeNovel(
     ai_config: aiConfig,
     generated_at: new Date().toISOString(),
   };
-
-  return analysis;
 }
 
 /** 构建剧情分析 */

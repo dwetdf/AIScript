@@ -45,7 +45,7 @@ async function openaiCompatibleChat(
   apiKey: string,
   model: string,
   messages: ChatMessage[],
-  options?: { temperature?: number; maxTokens?: number; jsonMode?: boolean }
+  options?: { temperature?: number; maxTokens?: number; jsonMode?: boolean; signal?: AbortSignal }
 ): Promise<string> {
   const body: OpenAICompatibleRequest = {
     model,
@@ -72,6 +72,7 @@ async function openaiCompatibleChat(
     method: 'POST',
     headers,
     body: JSON.stringify(body),
+    signal: options?.signal,
   });
 
   if (!resp.ok) {
@@ -98,7 +99,7 @@ async function anthropicChat(
   apiKey: string,
   model: string,
   messages: ChatMessage[],
-  options?: { temperature?: number; maxTokens?: number }
+  options?: { temperature?: number; maxTokens?: number; signal?: AbortSignal }
 ): Promise<string> {
   // 提取 system 消息
   const systemMsg = messages.find((m) => m.role === 'system');
@@ -125,6 +126,7 @@ async function anthropicChat(
       'anthropic-version': '2023-06-01',
     },
     body: JSON.stringify(body),
+    signal: options?.signal,
   });
 
   if (!resp.ok) {
@@ -165,7 +167,7 @@ function extractJson(text: string): string {
 export async function chatCompletion(
   messages: ChatMessage[],
   config?: AiConfig,
-  options?: { temperature?: number; maxTokens?: number; jsonMode?: boolean }
+  options?: { temperature?: number; maxTokens?: number; jsonMode?: boolean; signal?: AbortSignal }
 ): Promise<string> {
   const aiConfig = config ?? {
     ai_provider: 'deepseek',
@@ -199,7 +201,7 @@ export async function chatCompletion(
 export async function chatCompletionJson<T>(
   messages: ChatMessage[],
   config?: AiConfig,
-  options?: { temperature?: number; maxTokens?: number }
+  options?: { temperature?: number; maxTokens?: number; signal?: AbortSignal }
 ): Promise<T> {
   const text = await chatCompletion(messages, config, { ...options, jsonMode: true });
   const cleaned = extractJson(text);
@@ -226,11 +228,15 @@ export async function batchChatCompletionJson<T>(
     options?: { temperature?: number; maxTokens?: number };
   }>,
   concurrency = 3,
-  onItemComplete?: (index: number, result: T | null, error?: string) => void
+  onItemComplete?: (index: number, result: T | null, error?: string) => void,
+  signal?: AbortSignal
 ): Promise<(T | null)[]> {
   const results: (T | null)[] = new Array(tasks.length);
 
   for (let i = 0; i < tasks.length; i += concurrency) {
+    // 每批开始前检查中断信号
+    if (signal?.aborted) break;
+
     const batch = tasks.slice(i, i + concurrency);
     const batchResults = await Promise.all(
       batch.map(async (task, batchOffset) => {
@@ -239,7 +245,7 @@ export async function batchChatCompletionJson<T>(
           const parsed = await chatCompletionJson<T>(
             task.messages,
             task.config,
-            task.options
+            { ...task.options, signal }
           );
           results[globalIndex] = parsed;
           onItemComplete?.(globalIndex, parsed);

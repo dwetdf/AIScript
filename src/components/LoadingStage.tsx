@@ -12,10 +12,14 @@ interface Props {
   sceneName?: string;
   /** 并行场景名列表（展开阶段，并发时使用） */
   sceneNames?: string[];
-  /** 当前/总数（展开阶段） */
-  progress?: { current: number; total: number };
+  /** 当前/总数 + 可选标签 */
+  progress?: { current: number; total: number; label?: string };
   /** 并发数（用于预估剩余时间） */
   concurrency?: number;
+  /** 阶段 2 子步骤 */
+  planningStep?: 'strategy' | 'episode';
+  /** 取消按钮回调 */
+  onCancel?: () => void;
 }
 
 /** 每个阶段的趣味提示 */
@@ -44,7 +48,7 @@ const FUN_TIPS: Record<string, string[]> = {
   ],
 };
 
-export const LoadingStage: React.FC<Props> = ({ stage, message, sceneName, sceneNames, progress, concurrency }) => {
+export const LoadingStage: React.FC<Props> = ({ stage, message, sceneName, sceneNames, progress, concurrency, planningStep, onCancel }) => {
   const [tipIndex, setTipIndex] = useState(0);
   const tips = FUN_TIPS[stage] || ['处理中...'];
 
@@ -80,7 +84,11 @@ export const LoadingStage: React.FC<Props> = ({ stage, message, sceneName, scene
       {/* 状态文字 */}
       <h3 style={{ margin: '16px 0 8px', fontSize: 18, color: '#333' }}>
         {stage === 'analyzing' && '🔬 AI 正在分析小说'}
-        {stage === 'planning' && '🎬 AI 正在设计改编方案'}
+        {stage === 'planning' && (
+          planningStep === 'strategy' ? '🎯 AI 正在生成改编策略' :
+          planningStep === 'episode' ? '🎬 AI 正在规划幕结构与场景' :
+          '🎬 AI 正在设计改编方案'
+        )}
         {stage === 'expanding' && '✍️ AI 正在展开剧情节拍'}
       </h3>
 
@@ -99,14 +107,15 @@ export const LoadingStage: React.FC<Props> = ({ stage, message, sceneName, scene
             />
           </div>
           <span style={progressText}>
-            {progress.current} / {progress.total} 场景
+            {progress.current} / {progress.total}
+            {progress.label ? ` ${progress.label}` : ''}
             {percent !== null && ` · ${percent}%`}
           </span>
         </div>
       )}
 
-      {/* 当前场景名（向后兼容） */}
-      {sceneName && !sceneNames?.length && (
+      {/* 当前场景名（向后兼容，分析阶段） */}
+      {sceneName && !sceneNames?.length && stage === 'expanding' && (
         <div style={sceneBadge}>
           🎞️ 正在处理: <strong>{sceneName}</strong>
         </div>
@@ -123,19 +132,46 @@ export const LoadingStage: React.FC<Props> = ({ stage, message, sceneName, scene
 
       {/* 趣味提示 */}
       <div style={tipBubble} key={tipIndex}>
-        <span style={{ marginRight: 6 }}>{tips[tipIndex]}</span>
+        <span style={{ marginRight: 6 }}>
+          {planningStep && stage === 'planning'
+            ? (planningStep === 'strategy' ? tips[tipIndex] : '🗺️ 规划场景分布...')
+            : tips[tipIndex]}
+        </span>
       </div>
 
-      {/* 时长提示 */}
-      <p style={{ fontSize: 12, color: '#bbb', marginTop: 16 }}>
-        {stage === 'analyzing' && '预计 30-60 秒，取决于小说长度'}
-        {stage === 'planning' && '预计 20-40 秒'}
-        {stage === 'expanding' && progress && (() => {
-          const c = concurrency || 1;
-          const remaining = Math.max(1, Math.round((progress.total - progress.current) * 0.5 / c));
-          return `预计 ${remaining} 分钟（${c} 场景并行）`;
-        })()}
-      </p>
+      {/* 时长提示 + 取消按钮 */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginTop: 16 }}>
+        <p style={{ fontSize: 12, color: '#bbb', margin: 0 }}>
+          {stage === 'analyzing' && (progress
+            ? `分块分析中（${progress.total} 块）`
+            : '预计 30-60 秒，取决于小说长度')}
+          {stage === 'planning' && (planningStep
+            ? `预计 20-40 秒`
+            : '预计 20-40 秒')}
+          {stage === 'expanding' && progress && (() => {
+            const c = concurrency || 1;
+            const remaining = Math.max(1, Math.round((progress.total - progress.current) * 0.5 / c));
+            return `预计 ${remaining} 分钟（${c} 场景并行）`;
+          })()}
+        </p>
+        {onCancel && (
+          <button
+            onClick={onCancel}
+            style={{
+              padding: '6px 16px',
+              background: '#fff',
+              border: '1px solid #f44336',
+              borderRadius: 6,
+              color: '#f44336',
+              cursor: 'pointer',
+              fontSize: 13,
+              fontWeight: 500,
+            }}
+          >
+            ✕ 取消
+          </button>
+        )}
+      </div>
     </div>
   );
 };

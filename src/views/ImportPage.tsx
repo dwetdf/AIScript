@@ -1,9 +1,10 @@
 // ============================================================================
 // ImportPage — 小说导入页面
 // 拖拽/选择文件 → 解析 → 阶段1 分析
+// v0.4.0: 连接分块进度回调 + 取消按钮
 // ============================================================================
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { useProjectStore, useAnalysisStore, useConfigStore } from '../store';
 import { parseNovel } from '../parser';
 import { analyzeNovel } from '../analyzer';
@@ -21,10 +22,22 @@ export const ImportPage: React.FC<Props> = ({ onSectionChange }) => {
   const [error, setError] = useState<string | null>(null);
   const [loadingMsg, setLoadingMsg] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [analyzeProgress, setAnalyzeProgress] = useState<{
+    current: number; total: number; label: string;
+  } | null>(null);
+
+  const abortRef = useRef<AbortController | null>(null);
 
   const aiConfig = useConfigStore((s) => s.aiConfig);
   const setAnalysis = useAnalysisStore((s) => s.setAnalysis);
   const addProject = useProjectStore((s) => s.addProject);
+
+  const handleCancel = useCallback(() => {
+    abortRef.current?.abort();
+    setIsProcessing(false);
+    setLoadingMsg('');
+    setAnalyzeProgress(null);
+  }, []);
 
   const handleImport = useCallback(async (file: File) => {
     setError(null);
@@ -32,13 +45,23 @@ export const ImportPage: React.FC<Props> = ({ onSectionChange }) => {
     setLoadingMsg('正在解析小说文件...');
     await new Promise((r) => setTimeout(r, 0));
 
+    // 创建 AbortController
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     try {
       const novel: ParsedNovel = await parseNovel(file);
       setLoadingMsg(`已解析 ${novel.chapters.length} 个章节，开始 AI 分析...`);
       await new Promise((r) => setTimeout(r, 0));
 
       const projectId = `proj_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-      const novelAnalysis = await analyzeNovel(novel, aiConfig);
+      const novelAnalysis = await analyzeNovel(novel, aiConfig, {
+        onProgress: (chunk, totalChunks, label) => {
+          setAnalyzeProgress({ current: chunk, total: totalChunks, label });
+          setLoadingMsg(`正在分析第 ${chunk}/${totalChunks} 块...`);
+        },
+        signal: controller.signal,
+      });
       const vr = validate(novelAnalysis, 'novel-analysis');
       if (!vr.valid) console.warn('NovelAnalysis 校验警告:', vr.errors);
 
@@ -64,18 +87,35 @@ export const ImportPage: React.FC<Props> = ({ onSectionChange }) => {
 
       setIsProcessing(false);
       setLoadingMsg('');
+      setAnalyzeProgress(null);
+      abortRef.current = null;
       onSectionChange('analysis_overview');
     } catch (e) {
+      if ((e as Error).name === 'AbortError') {
+        // 用户取消，不显示错误
+        setIsProcessing(false);
+        setLoadingMsg('');
+        setAnalyzeProgress(null);
+        abortRef.current = null;
+        return;
+      }
       setError((e as Error).message);
       setIsProcessing(false);
       setLoadingMsg('');
+      setAnalyzeProgress(null);
+      abortRef.current = null;
     }
   }, [aiConfig, setAnalysis, addProject, onSectionChange]);
 
   if (isProcessing) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-        <LoadingStage stage="analyzing" message={loadingMsg} />
+        <LoadingStage
+          stage="analyzing"
+          message={loadingMsg}
+          progress={analyzeProgress || undefined}
+          onCancel={handleCancel}
+        />
       </div>
     );
   }
