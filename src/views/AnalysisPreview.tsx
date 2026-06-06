@@ -234,7 +234,12 @@ export const EventsTimeline: React.FC<{ analysis: NovelAnalysis; span?: number }
 
 // ============================== 章节摘要区块 ==============================
 
-export const ChaptersSection: React.FC<{ analysis: NovelAnalysis; span?: number }> = ({ analysis, span = 2 }) => {
+export const ChaptersSection: React.FC<{
+  analysis: NovelAnalysis;
+  span?: number;
+  onRegenerate?: (chapterNumber: number) => void;
+  regeneratingChapter?: number | null;
+}> = ({ analysis, span = 2, onRegenerate, regeneratingChapter }) => {
   const chapters = analysis.chapter_summaries;
   if (chapters.length === 0) return null;
 
@@ -255,8 +260,24 @@ export const ChaptersSection: React.FC<{ analysis: NovelAnalysis; span?: number 
                   {ch.chapter_number}
                 </span>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 600, fontSize: 13, color: '#333' }}>
+                  <div style={{ fontWeight: 600, fontSize: 13, color: '#333', display: 'flex', alignItems: 'center', gap: 6 }}>
                     {ch.chapter_title || `第${ch.chapter_number}章`}
+                    {onRegenerate && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onRegenerate(ch.chapter_number); }}
+                        disabled={regeneratingChapter === ch.chapter_number}
+                        title="重新生成本章分析"
+                        style={{
+                          border: 'none', background: 'transparent', cursor: regeneratingChapter === ch.chapter_number ? 'default' : 'pointer',
+                          fontSize: 12, opacity: regeneratingChapter === ch.chapter_number ? 0.4 : 0.5,
+                          padding: '1px 4px', borderRadius: 3, transition: 'opacity 0.2s',
+                        }}
+                        onMouseEnter={(e) => { if (regeneratingChapter !== ch.chapter_number) (e.currentTarget as HTMLButtonElement).style.opacity = '1'; }}
+                        onMouseLeave={(e) => { if (regeneratingChapter !== ch.chapter_number) (e.currentTarget as HTMLButtonElement).style.opacity = '0.5'; }}
+                      >
+                        {regeneratingChapter === ch.chapter_number ? '⏳' : '🔄'}
+                      </button>
+                    )}
                   </div>
                   <div style={{ fontSize: 11, color: '#999', display: 'flex', gap: 8 }}>
                     <span>{ch.paragraph_count} 段</span>

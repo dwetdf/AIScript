@@ -127,6 +127,9 @@ export async function tieredAnalyze(
 
 // ============================== Tier 1: 逐章并行分析 ==============================
 
+/** 单章重试上限 */
+const MAX_RETRIES = 2;
+
 async function runTier1(
   novel: ParsedNovel,
   tier1Config: AiConfig,
@@ -138,41 +141,111 @@ async function runTier1(
 
   // 构建逐章任务
   const tasks = novel.chapters.map((ch, i) => {
-    const chapterText = buildChapterText(ch);
     const chapterNum = i + 1;
-    const prompt = buildChapterAnalysisPrompt(chapterText, chapterNum, totalChapters, novel.title);
-
-    return {
-      messages: [
-        {
-          role: 'system' as const,
-          content: `你是一位专业的小说分析专家。你正在逐章分析《${novel.title}》的第 ${chapterNum}/${totalChapters} 章。请只输出 JSON。`,
-        },
-        { role: 'user' as const, content: prompt },
-      ],
-      config: tier1Config,
-      options: { temperature: 0.4, maxTokens: 16384 },
-    };
+    return buildSingleChapterTask(ch, chapterNum, totalChapters, novel.title, tier1Config);
   });
 
-  // 并行执行，每完成一章触发进度回调
+  // 第一轮并行执行
   let completedCount = 0;
   const results = await batchChatCompletionJson<Tier1ChapterResult>(
     tasks,
     concurrency,
     (index, result, _error) => {
       completedCount++;
-      const chapterNum = index + 1;
       const ch = novel.chapters[index];
       const label = result
-        ? `第${chapterNum}章 ${ch?.title || ''}`
-        : `第${chapterNum}章 (失败)`;
+        ? `第${index + 1}章 ${ch?.title || ''}`
+        : `第${index + 1}章 (失败)`;
       options?.onProgress?.(completedCount, totalChapters, label);
     },
     signal
   );
 
+  // 重试失败章节（最多 2 次）
+  for (let retry = 0; retry < MAX_RETRIES; retry++) {
+    if (signal?.aborted) break;
+
+    const failedIndices: number[] = [];
+    results.forEach((r, i) => { if (r === null) failedIndices.push(i); });
+    if (failedIndices.length === 0) break;
+
+    console.warn(
+      `[tiered-analyzer] 第 ${retry + 1} 次重试，失败章节:`,
+      failedIndices.map((i) => i + 1)
+    );
+
+    const retryTasks = failedIndices.map((i) => tasks[i]);
+    const retryResults = await batchChatCompletionJson<Tier1ChapterResult>(
+      retryTasks,
+      concurrency,
+      (batchIdx, result, _error) => {
+        const globalIdx = failedIndices[batchIdx];
+        const ch = novel.chapters[globalIdx];
+        const label = result
+          ? `第${globalIdx + 1}章 ${ch?.title || ''} (重试${retry + 1}次后成功)`
+          : `第${globalIdx + 1}章 (重试${retry + 1}次仍失败)`;
+        options?.onProgress?.(completedCount, totalChapters, label);
+      },
+      signal
+    );
+
+    // 合并重试结果
+    retryResults.forEach((r, batchIdx) => {
+      if (r !== null) results[failedIndices[batchIdx]] = r;
+    });
+  }
+
   return results;
+}
+
+/** 构建单个章节的 AI 任务 */
+function buildSingleChapterTask(
+  ch: { chapterNumber: number; title?: string; paragraphs: Array<{ index: number; text: string }> },
+  chapterNum: number,
+  totalChapters: number,
+  novelTitle: string,
+  config: AiConfig
+) {
+  const chapterText = buildChapterText(ch);
+  const prompt = buildChapterAnalysisPrompt(chapterText, chapterNum, totalChapters, novelTitle);
+
+  return {
+    messages: [
+      {
+        role: 'system' as const,
+        content: `你是一位专业的小说分析专家。你正在逐章分析《${novelTitle}》的第 ${chapterNum}/${totalChapters} 章。请只输出 JSON。`,
+      },
+      { role: 'user' as const, content: prompt },
+    ],
+    config,
+    options: { temperature: 0.4, maxTokens: 16384 },
+  };
+}
+
+/**
+ * 单独重新生成某一章的 Tier 1 分析
+ * 供 UI 手动触发单章重新生成
+ */
+export async function regenerateSingleChapter(
+  novel: ParsedNovel,
+  chapterIndex: number,
+  aiConfig: AiConfig,
+  tier1Model?: string
+): Promise<Tier1ChapterResult> {
+  const ch = novel.chapters[chapterIndex];
+  if (!ch) throw new Error(`章节索引 ${chapterIndex} 超出范围`);
+
+  const tier1Config: AiConfig = {
+    ...aiConfig,
+    ai_model: tier1Model || aiConfig.tier1_model || aiConfig.ai_model,
+  };
+  const task = buildSingleChapterTask(ch, chapterIndex + 1, novel.chapters.length, novel.title, tier1Config);
+
+  return chatCompletionJson<Tier1ChapterResult>(
+    task.messages,
+    task.config,
+    { ...task.options }
+  );
 }
 
 // ============================== Tier 2: 全文全局综合 ==============================

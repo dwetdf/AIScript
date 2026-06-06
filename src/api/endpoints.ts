@@ -113,6 +113,51 @@ export function loadScreenplay(projectId: string): Screenplay | null {
   }
 }
 
+// ============================== 原始小说持久化（用于单章重新生成） ==============================
+
+/** 轻量版章节数据（仅保留重新生成所需字段） */
+interface StoredChapter {
+  chapterNumber: number;
+  title?: string;
+  paragraphs: Array<{ index: number; text: string }>;
+}
+
+interface StoredNovel {
+  title: string;
+  author: string;
+  chapters: StoredChapter[];
+}
+
+/**
+ * 保存原始小说数据（用于后续单章重新生成）
+ */
+export function saveNovel(projectId: string, novel: { title: string; author?: string; chapters: Array<{ chapterNumber: number; title?: string; paragraphs: Array<{ index: number; text: string }> }> }): void {
+  try {
+    const stored: StoredNovel = {
+      title: novel.title,
+      author: novel.author || '',
+      chapters: novel.chapters.map((ch) => ({
+        chapterNumber: ch.chapterNumber,
+        title: ch.title,
+        paragraphs: ch.paragraphs.map((p) => ({ index: p.index, text: p.text })),
+      })),
+    };
+    localStorage.setItem(`${STORAGE_PREFIX}novel_${projectId}`, JSON.stringify(stored));
+  } catch { /* ignore */ }
+}
+
+/**
+ * 加载原始小说数据
+ */
+export function loadNovel(projectId: string): StoredNovel | null {
+  try {
+    const raw = localStorage.getItem(`${STORAGE_PREFIX}novel_${projectId}`);
+    return raw ? JSON.parse(raw) as StoredNovel : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * 导出项目完整数据为 JSON（备份 F104）
  */
