@@ -78,7 +78,7 @@ const AiEngineTab: React.FC = () => {
   const [saved, setSaved] = useState(false);
 
   const handleProvider = (p: string) => {
-    setAiConfig({ ...aiConfig, ai_provider: p as AiConfig['ai_provider'], ai_model: AI_MODELS[p]?.[0] ?? '' });
+    setAiConfig({ ...aiConfig, ai_provider: p as AiConfig['ai_provider'], ai_model: AI_MODELS[p]?.[0] ?? '', tier1_model: undefined });
   };
 
   const handleKey = (p: string, k: string) => {
@@ -147,7 +147,7 @@ const AiEngineTab: React.FC = () => {
           {AI_PROVIDERS.map((p) => <option key={p} value={p}>{AI_PROVIDER_LABELS[p] ?? p}</option>)}
         </select>
 
-        <Label>模型</Label>
+        <Label>默认模型</Label>
         {aiConfig.ai_provider === 'custom' ? (
           <input value={aiConfig.ai_model} onChange={(e) => setAiConfig({ ...aiConfig, ai_model: e.target.value })}
             style={inputStyle} placeholder="输入模型 ID (如 gpt-4o-mini)" />
@@ -156,6 +156,19 @@ const AiEngineTab: React.FC = () => {
             {(AI_MODELS[aiConfig.ai_provider] ?? []).map((m) => <option key={m} value={m}>{m}</option>)}
           </select>
         )}
+        <div style={{ gridColumn: '2', fontSize: 10, color: '#aaa', marginTop: -8 }}>用于全文综合、改编规划、Beat 展开等重度任务</div>
+
+        <Label>轻任务模型</Label>
+        {aiConfig.ai_provider === 'custom' ? (
+          <input value={aiConfig.tier1_model ?? ''} onChange={(e) => setAiConfig({ ...aiConfig, tier1_model: e.target.value || undefined })}
+            style={inputStyle} placeholder="留空自动推导，或手动输入模型 ID" />
+        ) : (
+          <select value={aiConfig.tier1_model ?? ''} onChange={(e) => setAiConfig({ ...aiConfig, tier1_model: e.target.value || undefined })} style={selectStyle}>
+            <option value="">自动推导（推荐）</option>
+            {(AI_MODELS[aiConfig.ai_provider] ?? []).map((m) => <option key={m} value={m}>{m}</option>)}
+          </select>
+        )}
+        <div style={{ gridColumn: '2', fontSize: 10, color: '#aaa', marginTop: -8 }}>用于逐章分析等轻量并行任务。留空则自动从默认模型推导快速变体</div>
 
         <Label>API Key</Label>
         <input type="password" value={apiKeys[aiConfig.ai_provider] ?? ''}
