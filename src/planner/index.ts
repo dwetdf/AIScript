@@ -2,12 +2,12 @@
 // 改编规划流程编排 — 阶段 2：NovelAnalysis → AdaptationPlan (F19-F31)
 // ============================================================================
 
-import type { AdaptationPlan, AiConfig, AdaptationStrategy, ScenePlan, SourceContext } from '../schema/types';
+import type { AdaptationPlan, AiConfig, AdaptationStrategy, ScenePlan, SourceContext, ActPlan } from '../schema/types';
 import { SCHEMA_VERSIONS } from '../shared/constants';
 import type { NovelAnalysis, ConversionConfig, ChapterSummary, CharacterAnalysis } from '../schema/types';
 import { chatCompletionJson } from '../api/client';
 import { buildAdaptationStrategyPrompt } from './prompt-templates/adaptation-strategy';
-import { buildEpisodePlanPrompt } from './prompt-templates/episode-plan';
+import { buildEpisodePlanPrompt, buildScenePlanOnlyPrompt } from './prompt-templates/episode-plan';
 
 /**
  * 阶段 2 主入口：基于小说分析结果生成改编规划
@@ -272,6 +272,64 @@ function buildLocationsDraft(
   }
 
   return locations;
+}
+
+/**
+ * 单独重新生成场景大纲（保留用户修改后的 act 结构）
+ *
+ * @param analysis 小说分析产物
+ * @param strategy 已有的改编策略
+ * @param acts 用户修改后的幕结构
+ * @param config 转换配置
+ * @param aiConfig AI 配置
+ * @param signal 中断信号
+ */
+export async function regenerateScenePlans(
+  analysis: NovelAnalysis,
+  strategy: AdaptationStrategy,
+  acts: ActPlan[],
+  config: ConversionConfig,
+  aiConfig: AiConfig,
+  signal?: AbortSignal
+): Promise<ScenePlan[]> {
+  const plotSummary = preparePlotSummary(analysis);
+  const prompt = buildScenePlanOnlyPrompt(plotSummary, strategy, config, acts);
+
+  const result = await chatCompletionJson<{
+    scene_plan: Array<{
+      scene_global_number: number; act_number: number; scene_number: number;
+      location: { name: string; interior_exterior: 'INT' | 'EXT' | 'INT_EXT'; set_description?: string };
+      time_of_day: string; synopsis: string; dramatic_function: string;
+      tension_level?: number; characters_present?: string[];
+      source_chapter_ref?: string;
+      beat_plan?: { estimated_beat_count?: number; key_beats?: Array<{ order: number; beat_type?: string; description: string; character_id?: string; from_source?: boolean }>; notes?: string };
+    }>;
+  }>(
+    [
+      { role: 'system', content: '你是一个专业的影视结构设计师。请基于给定的幕结构，输出场景大纲 JSON。' },
+      { role: 'user', content: prompt },
+    ],
+    aiConfig,
+    { temperature: 0.5, maxTokens: 16384, signal }
+  );
+
+  return result.scene_plan.map((sp) => ({
+    scene_global_number: sp.scene_global_number,
+    act_number: sp.act_number,
+    scene_number: sp.scene_number,
+    location: sp.location,
+    time_of_day: sp.time_of_day,
+    synopsis: sp.synopsis,
+    dramatic_function: sp.dramatic_function as ScenePlan['dramatic_function'],
+    tension_level: sp.tension_level,
+    characters_present: sp.characters_present,
+    source_chapter_ref: sp.source_chapter_ref,
+    beat_plan: sp.beat_plan,
+    source_context: extractSourceContext(analysis, sp),
+    estimated_duration_seconds: sp.beat_plan?.estimated_beat_count
+      ? sp.beat_plan.estimated_beat_count * 12
+      : 120,
+  }));
 }
 
 /** 准备分析摘要 */
