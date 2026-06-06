@@ -42,9 +42,17 @@ export const AnalysisPage: React.FC<Props> = ({ section, onSectionChange }) => {
   const handleRegenerate = useCallback(async (chapterNumber: number) => {
     if (!activeProjectId || !analysis) return;
     const novel = loadNovel(activeProjectId);
-    if (!novel) return;
+    if (!novel) {
+      alert('未找到原始小说数据。请重新导入小说后再试。\n\n（原因：该项目在阶段1分析时未保存原文，需重新导入）');
+      return;
+    }
 
     const chapterIndex = chapterNumber - 1;
+    if (chapterIndex < 0 || chapterIndex >= novel.chapters.length) {
+      alert(`章节索引错误：第${chapterNumber}章超出范围`);
+      return;
+    }
+
     setRegeneratingChapter(chapterNumber);
     try {
       const { chapterSummary, curatedPassages } = await regenerateChapter(
@@ -58,6 +66,7 @@ export const AnalysisPage: React.FC<Props> = ({ section, onSectionChange }) => {
       if (updated) saveAnalysis(activeProjectId, updated);
     } catch (e) {
       console.error(`重新生成第${chapterNumber}章失败:`, e);
+      alert(`重新生成第${chapterNumber}章失败：${(e as Error).message}`);
     } finally {
       setRegeneratingChapter(null);
     }

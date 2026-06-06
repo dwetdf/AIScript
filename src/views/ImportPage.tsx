@@ -8,6 +8,7 @@ import React, { useState, useCallback } from 'react';
 import { useProjectStore, useConfigStore } from '../store';
 import { parseNovel } from '../parser';
 import { startStage1Analysis } from '../background/taskManager';
+import { saveNovel } from '../api/endpoints';
 import { saveProjectMeta } from '../api/endpoints';
 import type { AppSection } from '../components/AppShell';
 
@@ -62,6 +63,9 @@ export const ImportPage: React.FC<Props> = ({ onSectionChange }) => {
 
       setParsing(false);
       setParsingMsg('');
+
+      // 持久化原始小说（用于后续单章重新生成）
+      saveNovel(projectId, novel);
 
       // 启动后台阶段 1 分析
       startStage1Analysis(projectId, novel, novel.title, novel.author || '未知', aiConfig);
