@@ -7,7 +7,7 @@ import type { Screenplay, AiConfig, AdaptationPlan, Act, Scene, Beat, Screenplay
 import { generateBeatId } from '../shared/id-generator';
 import { SCHEMA_VERSIONS } from '../shared/constants';
 import { chatCompletionJson, batchChatCompletionJson, type ChatMessage } from '../api/client';
-import { buildBeatExpansionPrompt } from './prompt-templates/beat-expansion';
+import { buildBeatExpansionPrompt, type WritingStyle } from './prompt-templates/beat-expansion';
 
 /** expandBeats 的可选参数 */
 export interface ExpandBeatsOptions {
@@ -19,6 +19,10 @@ export interface ExpandBeatsOptions {
   onSceneComplete?: (sceneGlobalNumber: number, status: 'done' | 'failed') => void;
   /** 中断信号：设置后终止后续场景调用，已完成的保留 */
   signal?: AbortSignal;
+  /** 用户自定义补充指令，注入到每个场景的 system prompt 中 */
+  customInstructions?: string;
+  /** 写作风格参数（对白密度 / 动作详细度 / 舞台指示风格） */
+  writingStyle?: WritingStyle;
 }
 
 /** 展平后的场景任务 */
@@ -51,11 +55,15 @@ export async function expandBeats(
   const tasks = flattenSceneTasks(plan);
 
   // 构建 AI 任务
+  const customInstructions = options?.customInstructions;
+  const writingStyle = options?.writingStyle;
   const aiTasks = tasks.map((t) => {
     const { system, user } = buildBeatExpansionPrompt(
       t.scenePlan,
       t.scenePlan.source_context,
-      t.scenePlan.beat_plan
+      t.scenePlan.beat_plan,
+      customInstructions,
+      writingStyle
     );
     return {
       messages: [

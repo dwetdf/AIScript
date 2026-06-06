@@ -1,13 +1,23 @@
 // ============================================================================
 // ScriptPage — 阶段3 剧本编辑全页
 // sub-tabs: 剧本编辑 / 人物表
-// v0.5.0: 新增导出按钮（PDF）
+// 写作风格 + 补充指令 + 模板保存/加载（对标阶段 2 ConversionPresetPanel）
 // ============================================================================
 
-import React from 'react';
-import { useScriptStore } from '../store';
+import React, { useCallback } from 'react';
+import { useScriptStore, useConfigStore, useProjectStore, usePlanStore } from '../store';
+import { expandBeats } from '../converter';
+import { saveScreenplay } from '../api/endpoints';
+import { validate } from '../schema/validator';
 import { Editor } from '../editor';
 import { exportPdf, exportFullProjectPdf } from '../renderer/pdf';
+import { LoadingStage } from '../components/LoadingStage';
+import {
+  DIALOGUE_DENSITY_OPTIONS, DIALOGUE_DENSITY_LABELS,
+  ACTION_DETAIL_OPTIONS, ACTION_DETAIL_LABELS,
+  STAGE_DIRECTION_OPTIONS, STAGE_DIRECTION_LABELS,
+} from '../shared/constants';
+import type { ConversionConfig } from '../schema/types';
 import type { AppSection } from '../components/AppShell';
 
 interface Props {
@@ -22,19 +32,131 @@ const TABS: Array<{ id: AppSection; label: string; icon: string }> = [
 
 export const ScriptPage: React.FC<Props> = ({ section, onSectionChange }) => {
   const screenplay = useScriptStore((s) => s.screenplay);
+  const plan = usePlanStore((s) => s.plan);
+  const aiConfig = useConfigStore((s) => s.aiConfig);
+  const getProjectConfig = useConfigStore((s) => s.getProjectConfig);
+  const setProjectConfig = useConfigStore((s) => s.setProjectConfig);
+  const activeProjectId = useProjectStore((s) => s.activeProjectId);
+
+  const projectConfig = getProjectConfig(activeProjectId || 'default');
+
+  const updateConfig = useCallback(<K extends keyof ConversionConfig>(key: K, value: ConversionConfig[K]) => {
+    setProjectConfig(activeProjectId || 'default', { [key]: value });
+  }, [activeProjectId, setProjectConfig]);
+
+  // ---- 展开状态 ----
+  const [isProcessing, setIsProcessing] = React.useState(false);
+  const [loadingMsg, setLoadingMsg] = React.useState('');
+  const [expandProgress, setExpandProgress] = React.useState<{
+    current: number; total: number; currentScenes: string[];
+  } | null>(null);
+  const abortRef = React.useRef<AbortController | null>(null);
+
+  const handleCancel = React.useCallback(() => {
+    abortRef.current?.abort();
+    setIsProcessing(false);
+    setLoadingMsg('');
+    setExpandProgress(null);
+    abortRef.current = null;
+  }, []);
+
+  const handleExpand = async () => {
+    if (!plan) return;
+    setIsProcessing(true);
+    setLoadingMsg('AI 正在展开场景 beat...');
+    setExpandProgress({ current: 0, total: plan.scene_plan.length, currentScenes: [] });
+
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    await new Promise((r) => setTimeout(r, 0));
+    try {
+      const concurrency = useConfigStore.getState().concurrency;
+      const cfg = useConfigStore.getState().getProjectConfig(activeProjectId || 'default');
+      // 阶段 3 专用指令优先，回退到通用指令
+      const stage3Instructions = cfg.stage3_custom_instructions || cfg.custom_instructions;
+      const screenplayData = await expandBeats(plan, aiConfig, {
+        concurrency,
+        customInstructions: stage3Instructions,
+        writingStyle: {
+          dialogue_density: cfg.dialogue_density,
+          action_detail_level: cfg.action_detail_level,
+          stage_direction_style: cfg.stage_direction_style,
+        },
+        onProgress: (completed, total, currentScenes) => {
+          setExpandProgress({ current: completed, total, currentScenes });
+          setLoadingMsg(`正在展开场景 ${completed}/${total}...`);
+        },
+        signal: controller.signal,
+      });
+      const vr = validate(screenplayData, 'screenplay');
+      if (!vr.valid) console.warn('Screenplay 校验警告:', vr.errors);
+      useScriptStore.getState().setScreenplay(screenplayData);
+      if (activeProjectId) {
+        saveScreenplay(activeProjectId, screenplayData);
+        useProjectStore.getState().updateProjectPhase(activeProjectId, 'scripted');
+      }
+      setIsProcessing(false);
+      setLoadingMsg('');
+      setExpandProgress(null);
+      abortRef.current = null;
+    } catch (e) {
+      if ((e as Error).name === 'AbortError') {
+        setIsProcessing(false);
+        setLoadingMsg('');
+        setExpandProgress(null);
+        abortRef.current = null;
+        return;
+      }
+      setIsProcessing(false);
+      setLoadingMsg('');
+      setExpandProgress(null);
+      abortRef.current = null;
+      console.error('Expand failed:', e);
+    }
+  };
 
   const beatsCount = screenplay?.acts.reduce((s, a) => s + a.scenes.reduce((ss, sc) => ss + sc.beats.length, 0), 0) ?? 0;
   const sceneCount = screenplay?.acts.reduce((s, a) => s + a.scenes.length, 0) ?? 0;
 
-  if (!screenplay) {
+  // ---- Loading 态 ----
+  if (isProcessing) {
     return (
-      <div style={{ textAlign: 'center', padding: 80, color: '#888' }}>
-        <div style={{ fontSize: 48, marginBottom: 16 }}>📝</div>
-        <p>尚未生成剧本，请先完成阶段2 改编规划</p>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+        <LoadingStage
+          stage="expanding"
+          message={loadingMsg}
+          sceneNames={expandProgress?.currentScenes}
+          progress={expandProgress || undefined}
+          concurrency={useConfigStore.getState().concurrency}
+          onCancel={handleCancel}
+        />
       </div>
     );
   }
 
+  // ---- 无剧本：完整配置面板 + 展开按钮 ----
+  if (!screenplay) {
+    return (
+      <div style={{ textAlign: 'center', padding: '40px 24px', overflow: 'auto', height: '100%' }}>
+        <div style={{ fontSize: 36, marginBottom: 8 }}>📝</div>
+        <h3 style={{ marginBottom: 4 }}>阶段 3：剧本</h3>
+        <p style={{ color: '#888', marginBottom: 28 }}>
+          {plan ? '配置写作风格和补充指令，然后展开 Beat' : '请先在「改编规划」页完成阶段 2'}
+        </p>
+
+        {/* 阶段 3 配置面板 */}
+        <Stage3PresetPanel
+          projectId={activeProjectId || 'default'}
+          config={projectConfig}
+          onChange={updateConfig}
+          onExpand={plan ? handleExpand : undefined}
+        />
+      </div>
+    );
+  }
+
+  // ---- 有剧本：编辑器 + 工具栏 ----
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       {/* Sub-tab 导航 */}
@@ -103,4 +225,204 @@ export const ScriptPage: React.FC<Props> = ({ section, onSectionChange }) => {
       </div>
     </div>
   );
+};
+
+// ============================================================================
+// Stage3PresetPanel — 阶段 3 专属配置面板（对标 ConversionPresetPanel）
+// 模板保存/加载 + 写作风格 + 补充指令
+// ============================================================================
+
+interface Stage3PresetPanelProps {
+  projectId: string;
+  config: ConversionConfig;
+  onChange: <K extends keyof ConversionConfig>(key: K, value: ConversionConfig[K]) => void;
+  onExpand?: () => void;
+}
+
+const Stage3PresetPanel: React.FC<Stage3PresetPanelProps> = ({ projectId, config, onChange, onExpand }) => {
+  const templates = useConfigStore((s) => s.conversionTemplates);
+  const saveConversionTemplate = useConfigStore((s) => s.saveConversionTemplate);
+  const loadConversionTemplate = useConfigStore((s) => s.loadConversionTemplate);
+  const deleteConversionTemplate = useConfigStore((s) => s.deleteConversionTemplate);
+
+  const [templateName, setTemplateName] = React.useState('');
+  const [savedMsg, setSavedMsg] = React.useState('');
+
+  const handleSaveTemplate = useCallback(() => {
+    const name = templateName.trim();
+    if (!name) return;
+    saveConversionTemplate(projectId, name);
+    setTemplateName('');
+    setSavedMsg('✅ 已保存');
+    setTimeout(() => setSavedMsg(''), 2000);
+  }, [projectId, templateName, saveConversionTemplate]);
+
+  const handleLoadTemplate = useCallback((templateId: string) => {
+    const tpl = templates.find((t) => t.id === templateId);
+    if (!tpl) return;
+    loadConversionTemplate(projectId, templateId);
+    setSavedMsg('✅ 已加载');
+    setTimeout(() => setSavedMsg(''), 2000);
+  }, [projectId, templates, loadConversionTemplate]);
+
+  const handleDeleteTemplate = useCallback((id: string, name: string) => {
+    if (!window.confirm(`确定删除模板 "${name}"？`)) return;
+    deleteConversionTemplate(id);
+  }, [deleteConversionTemplate]);
+
+  const handleStage3Instructions = useCallback((text: string) => {
+    onChange('stage3_custom_instructions', text || undefined);
+  }, [onChange]);
+
+  return (
+    <div style={{ maxWidth: 640, margin: '0 auto', textAlign: 'left' }}>
+      {/* ====== 模板加载栏 ====== */}
+      {templates.length > 0 && (
+        <div style={{
+          background: '#f8f9fa', border: '1px solid #e8e8e8', borderRadius: 8,
+          padding: '6px 12px', marginBottom: 12,
+          display: 'flex', alignItems: 'center', gap: 8,
+        }}>
+          <span style={{ fontSize: 12, fontWeight: 600, color: '#666', whiteSpace: 'nowrap' }}>📁 模板</span>
+          <select
+            defaultValue=""
+            onChange={(e) => { if (e.target.value) { handleLoadTemplate(e.target.value); e.target.value = ''; } }}
+            style={{ flex: 1, padding: '4px 6px', borderRadius: 4, border: '1px solid #d0d0d0', fontSize: 12, background: '#fff' }}
+          >
+            <option value="">— 选择模板 —</option>
+            {templates.map((t) => (
+              <option key={t.id} value={t.id}>{t.name}</option>
+            ))}
+          </select>
+          {templates.map((t) => (
+            <button key={t.id} onClick={() => handleDeleteTemplate(t.id, t.name)} title={`删除 "${t.name}"`}
+              style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 13, padding: 0 }}>
+              🗑️
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* ====== 写作风格参数 ====== */}
+      <div style={{
+        background: '#fff', border: '1px solid #e8e8e8', borderRadius: 8, padding: '14px 18px',
+        marginBottom: 12,
+      }}>
+        {/* 标题行 + 保存模板 */}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 10,
+          marginBottom: 12, paddingBottom: 10, borderBottom: '1px solid #f0f0f0',
+        }}>
+          <h4 style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#333', whiteSpace: 'nowrap' }}>
+            ✍️ 写作风格
+          </h4>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1 }}>
+            <input
+              value={templateName}
+              onChange={(e) => setTemplateName(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleSaveTemplate()}
+              placeholder="模板名称"
+              style={{ width: 96, padding: '4px 8px', borderRadius: 4, border: '1px solid #d0d0d0', fontSize: 12 }}
+            />
+            <button onClick={handleSaveTemplate} disabled={!templateName.trim()}
+              style={{
+                padding: '4px 12px', borderRadius: 4, fontSize: 12, cursor: 'pointer',
+                background: templateName.trim() ? '#1976d2' : '#e0e0e0',
+                color: templateName.trim() ? '#fff' : '#999',
+                border: 'none', whiteSpace: 'nowrap',
+              }}>
+              💾 保存模板
+            </button>
+            {savedMsg && <span style={{ fontSize: 11, color: '#2e7d32', whiteSpace: 'nowrap' }}>{savedMsg}</span>}
+          </div>
+        </div>
+
+        {/* 参数：三列 */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px 16px' }}>
+          <StyleRow label="对白密度">
+            <select value={config.dialogue_density}
+              onChange={(e) => onChange('dialogue_density', e.target.value as ConversionConfig['dialogue_density'])}
+              style={selectStyle}>
+              {DIALOGUE_DENSITY_OPTIONS.map((o) => (
+                <option key={o} value={o}>{DIALOGUE_DENSITY_LABELS[o] ?? o}</option>
+              ))}
+            </select>
+          </StyleRow>
+          <StyleRow label="动作详细度">
+            <select value={config.action_detail_level}
+              onChange={(e) => onChange('action_detail_level', e.target.value as ConversionConfig['action_detail_level'])}
+              style={selectStyle}>
+              {ACTION_DETAIL_OPTIONS.map((o) => (
+                <option key={o} value={o}>{ACTION_DETAIL_LABELS[o] ?? o}</option>
+              ))}
+            </select>
+          </StyleRow>
+          <StyleRow label="舞台指示">
+            <select value={config.stage_direction_style}
+              onChange={(e) => onChange('stage_direction_style', e.target.value as ConversionConfig['stage_direction_style'])}
+              style={selectStyle}>
+              {STAGE_DIRECTION_OPTIONS.map((o) => (
+                <option key={o} value={o}>{STAGE_DIRECTION_LABELS[o] ?? o}</option>
+              ))}
+            </select>
+          </StyleRow>
+        </div>
+      </div>
+
+      {/* ====== 补充指令 ====== */}
+      <div style={{
+        background: '#fff', border: '1px solid #e8e8e8', borderRadius: 8, padding: '14px 18px',
+        marginBottom: 12,
+      }}>
+        <h4 style={{ margin: '0 0 4px', fontSize: 13, fontWeight: 600, color: '#333' }}>
+          💬 补充指令
+          <span style={{ fontWeight: 400, fontSize: 11, color: '#999', marginLeft: 6 }}>
+            （专门注入到阶段 3 Beat 展开的 AI 提示词中）
+          </span>
+        </h4>
+        <textarea
+          value={config.stage3_custom_instructions || ''}
+          onChange={(e) => handleStage3Instructions(e.target.value)}
+          placeholder="例：人物对白要体现时代感；动作场面描写要紧凑有力；保留原文中标志性台词…"
+          rows={4}
+          style={{
+            width: '100%', padding: '8px 10px', borderRadius: 6,
+            border: '1px solid #d0d0d0', fontSize: 13, lineHeight: 1.5,
+            resize: 'vertical', boxSizing: 'border-box',
+            fontFamily: 'inherit', marginTop: 6,
+          }}
+        />
+      </div>
+
+      {/* 展开按钮 */}
+      {onExpand && (
+        <button onClick={onExpand} style={{
+          ...primaryBtn, marginTop: 4,
+        }}>
+          → 展开 Beat（阶段 3）
+        </button>
+      )}
+    </div>
+  );
+};
+
+// ====== Shared styles ======
+
+const StyleRow: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
+  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+    <span style={{ fontSize: 12, fontWeight: 600, color: '#777', whiteSpace: 'nowrap', minWidth: 56 }}>
+      {label}
+    </span>
+    <div style={{ flex: 1 }}>{children}</div>
+  </div>
+);
+
+const selectStyle: React.CSSProperties = {
+  width: '100%', padding: '5px 8px', borderRadius: 4,
+  border: '1px solid #d0d0d0', fontSize: 13, background: '#fff',
+};
+
+const primaryBtn: React.CSSProperties = {
+  padding: '14px 32px', background: '#1976d2', color: '#fff',
+  border: 'none', borderRadius: 8, fontSize: 16, cursor: 'pointer', fontWeight: 600,
 };

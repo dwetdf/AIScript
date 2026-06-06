@@ -14,6 +14,13 @@ export interface BeatExpansionPrompt {
   user: string;
 }
 
+/** 写作风格参数 */
+export interface WritingStyle {
+  dialogue_density: 'sparse' | 'balanced' | 'dense';
+  action_detail_level: 'minimal' | 'standard' | 'detailed';
+  stage_direction_style: 'concise' | 'descriptive';
+}
+
 /**
  * 构建单场景 beat 展开 Prompt
  * 返回拆分的 system + user，格式说明只出现在 system 中（所有并发场景共用/相似）
@@ -21,18 +28,41 @@ export interface BeatExpansionPrompt {
 export function buildBeatExpansionPrompt(
   scenePlan: ScenePlan,
   sourceContext?: SourceContext,
-  beatPlan?: BeatPlan
+  beatPlan?: BeatPlan,
+  customInstructions?: string,
+  writingStyle?: WritingStyle
 ): BeatExpansionPrompt {
-  const system = buildSystemPrompt();
+  const system = buildSystemPrompt(customInstructions, writingStyle);
   const user = buildUserPrompt(scenePlan, sourceContext, beatPlan);
   return { system, user };
 }
 
 /** 系统消息：角色定义 + 输出格式 + 规则（所有场景共用，不随场景变化） */
-function buildSystemPrompt(): string {
-  return `你是一个专业的剧本写手。将场景大纲展开为完整的剧情节拍（beat）序列，输出纯 JSON。
+function buildSystemPrompt(customInstructions?: string, writingStyle?: WritingStyle): string {
+  const parts: string[] = [];
 
-## 输出 JSON 结构
+  parts.push('你是一个专业的剧本写手。将场景大纲展开为完整的剧情节拍（beat）序列，输出纯 JSON。');
+
+  // 写作风格指引
+  if (writingStyle) {
+    const densityLabel: Record<string, string> = { sparse: '稀疏——以动作和描写为主，对白精简', balanced: '均衡——对白与动作比例适中', dense: '密集——以对白为主，用对话推动剧情' };
+    const actionLabel: Record<string, string> = { minimal: '简洁——只写关键动作，省略细节', standard: '标准——保留必要动作描写', detailed: '详细——充分描写动作和环境细节' };
+    const stageLabel: Record<string, string> = { concise: '简洁——舞台指示简短精炼', descriptive: '描述性——舞台指示包含更多氛围和情绪描写' };
+
+    parts.push(`## 写作风格
+- 对白密度：${densityLabel[writingStyle.dialogue_density] || writingStyle.dialogue_density}
+- 动作详细度：${actionLabel[writingStyle.action_detail_level] || writingStyle.action_detail_level}
+- 舞台指示风格：${stageLabel[writingStyle.stage_direction_style] || writingStyle.stage_direction_style}
+
+请严格遵循以上写作风格来展开节拍。`);
+  }
+
+  // 用户补充指令
+  if (customInstructions) {
+    parts.push(`## 用户补充指令\n${customInstructions}\n\n请严格遵守以上用户补充指令来指导节拍展开的风格和重点。`);
+  }
+
+  parts.push(`## 输出 JSON 结构
 { "tension_level": <number 1-5>, "beats": [ <beat objects> ] }
 
 ## Beat 类型与字段速查
@@ -52,7 +82,9 @@ function buildSystemPrompt(): string {
 2. is_ai_generated: true — AI 新增过渡/外化内容；false — 直接基于原文
 3. source_ref 仅对源于原文的 beat 填写（chapter/paragraph/excerpt），AI 过渡内容不填
 4. 对白不加引号，剧本格式
-5. 请输出纯 JSON，不要包含 markdown 代码块标记`;
+5. 请输出纯 JSON，不要包含 markdown 代码块标记`);
+
+  return parts.join('\n\n');
 }
 
 /** 用户消息：场景特定数据（每个场景不同） */

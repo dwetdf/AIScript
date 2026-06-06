@@ -4,6 +4,42 @@
 
 import type { ConversionConfig } from '../../schema/types';
 
+/** 根据媒介 + 篇幅生成时长描述 */
+function durationDescription(config: ConversionConfig): string {
+  const dur = config.target_duration;
+  if (!dur) return '未指定';
+  const labels: Record<string, string> = {
+    short: '短篇（约20-30分钟）',
+    mid: '中篇（约45-60分钟）',
+    standard: '标准（约90分钟）',
+    feature: '长片（约120分钟）',
+    extended: '超长（约150分钟以上）',
+  };
+  const base = labels[dur] ?? dur;
+  switch (config.target_medium) {
+    case 'film':
+    case 'stage_play':
+      return `全片篇幅：${base}`;
+    case 'tv_series':
+    case 'web_series':
+    case 'audio_drama':
+      return `每集篇幅：${base}${config.total_episodes ? `，共 ${config.total_episodes} 集` : ''}`;
+    default:
+      return base;
+  }
+}
+
+/** 根据忠实度枚举值生成描述 */
+function fidelityDescription(f: string): string {
+  const map: Record<string, string> = {
+    faithful: '忠实改编 — 尽可能保留原著结构和人物，仅做影视化必要调整',
+    balanced: '适度重构 — 保留核心情节和人物，合并支线、调整节奏',
+    bold: '大幅重构 — 以原著为核心素材重新组织叙事结构',
+    inspired: '只取创意 — 仅保留世界观/核心设定，剧情和人物大幅原创',
+  };
+  return map[f] ?? f;
+}
+
 export function buildAdaptationStrategyPrompt(
   analysisSummary: string,
   config: ConversionConfig
@@ -15,10 +51,10 @@ ${analysisSummary}
 
 ## 目标配置
 - 媒介：${config.target_medium}
-- 类型：${config.genre.join('、') || '未指定'}
+- 目标时长：${durationDescription(config)}
 - 基调：${config.tone}
-- 对白密度：${config.dialogue_density}
-- 动作详细度：${config.action_detail_level}
+- 改编忠实度：${fidelityDescription(config.adaptation_fidelity)}
+${config.custom_instructions ? `\n## 用户补充指令\n${config.custom_instructions}` : ''}
 
 ## 请输出 JSON 格式（严格遵守，不要 markdown 代码块）：
 
