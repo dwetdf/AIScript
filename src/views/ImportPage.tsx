@@ -4,7 +4,7 @@
 // ============================================================================
 
 import React, { useState, useCallback } from 'react';
-import { useProjectStore, useAnalysisStore, useConfigStore } from '../store';
+import { useProjectStore, useConfigStore } from '../store';
 import { parseNovel } from '../parser';
 import { analyzeNovel } from '../analyzer';
 import { validate } from '../schema/validator';
@@ -23,8 +23,8 @@ export const ImportPage: React.FC<Props> = ({ onSectionChange }) => {
   const [isProcessing, setIsProcessing] = useState(false);
 
   const aiConfig = useConfigStore((s) => s.aiConfig);
-  const setAnalysis = useAnalysisStore((s) => s.setAnalysis);
   const addProject = useProjectStore((s) => s.addProject);
+  const setActiveProject = useProjectStore((s) => s.setActiveProject);
 
   const handleImport = useCallback(async (file: File) => {
     setError(null);
@@ -42,7 +42,7 @@ export const ImportPage: React.FC<Props> = ({ onSectionChange }) => {
       const vr = validate(novelAnalysis, 'novel-analysis');
       if (!vr.valid) console.warn('NovelAnalysis 校验警告:', vr.errors);
 
-      setAnalysis(novelAnalysis);
+      // 先持久化到 localStorage，再由 App Effect 2 加载到内存 store
       saveAnalysis(projectId, novelAnalysis);
       saveMeta({
         id: projectId,
@@ -62,6 +62,9 @@ export const ImportPage: React.FC<Props> = ({ onSectionChange }) => {
         phase: 'analyzed',
       });
 
+      // 切换到新导入的项目，触发数据加载
+      setActiveProject(projectId);
+
       setIsProcessing(false);
       setLoadingMsg('');
       onSectionChange('analysis_overview');
@@ -70,7 +73,7 @@ export const ImportPage: React.FC<Props> = ({ onSectionChange }) => {
       setIsProcessing(false);
       setLoadingMsg('');
     }
-  }, [aiConfig, setAnalysis, addProject, onSectionChange]);
+  }, [aiConfig, addProject, setActiveProject, onSectionChange]);
 
   if (isProcessing) {
     return (
