@@ -1,8 +1,21 @@
 // ============================================================================
 // analysisExport — 分析报告导出 (PDF + HTML)
+// Electron 环境：静默导出 PDF 不弹窗
+// 浏览器环境：window.print() 打印对话框
 // ============================================================================
 
 import type { NovelAnalysis } from '@/schema/types';
+
+function isElectron(): boolean {
+  return typeof (window as any).electronAPI?.printToPdf === 'function';
+}
+
+function getElectronAPI() {
+  return (window as any).electronAPI as {
+    printToPdf: () => Promise<ArrayBuffer>;
+    saveFile: (options: { defaultName: string; data: ArrayBuffer }) => Promise<string | null>;
+  } | null;
+}
 
 /** 清除指定ID的print style */
 function removePrintStyleById(id: string): void {
@@ -10,8 +23,7 @@ function removePrintStyleById(id: string): void {
   if (el) el.remove();
 }
 
-export function exportAnalysisPdf(): void {
-  // 清除其他阶段的 print style，确保只有分析报告可见
+export async function exportAnalysisPdf(): Promise<void> {
   removePrintStyleById('screenplay-print-style');
   removePrintStyleById('plan-print-style');
   removePrintStyleById('full-project-print-style');
@@ -23,7 +35,19 @@ export function exportAnalysisPdf(): void {
     document.head.appendChild(styleEl);
   }
   addAnalysisWatermark();
-  window.print();
+
+  if (isElectron()) {
+    try {
+      const api = getElectronAPI()!;
+      const pdfData = await api.printToPdf();
+      await api.saveFile({ defaultName: '分析报告.pdf', data: pdfData });
+    } catch {
+      window.print();
+    }
+  } else {
+    window.print();
+  }
+
   setTimeout(removeAnalysisWatermark, 1000);
 }
 

@@ -2,12 +2,16 @@
   "name": "aiscript",
   "version": "0.1.0",
   "private": true,
-  "type": "module",
+  "main": "dist-electron/main.js",
   "description": "AI 辅助剧本创作工具 — 将小说文本自动转换为结构化剧本",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "electron:build": "npm run build && tsc -p electron/tsconfig.json",
+    "electron:dev": "set ELECTRON_DEV=true && npm run dev",
+    "electron:start": "npm run electron:build && electron .",
+    "electron:package": "npm run electron:build && electron-builder --win"
   },
   "dependencies": {
     "ajv": "^8.17.1",
@@ -25,8 +29,43 @@
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.4",
+    "electron": "^42.3.3",
+    "electron-builder": "^25.1.8",
     "tsx": "^4.22.4",
     "typescript": "^5.6.3",
     "vite": "^6.0.3"
+  },
+  "build": {
+    "appId": "com.aiscript.app",
+    "productName": "AIScript",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "language": "2052"
+    }
   }
 }

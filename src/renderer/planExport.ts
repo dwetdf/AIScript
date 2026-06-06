@@ -1,9 +1,21 @@
 // ============================================================================
 // planExport — 改编规划导出 (PDF + HTML)
-// 仅导出 AdaptationPlan 的内容，不包含其他阶段数据
+// Electron 环境：静默导出 PDF 不弹窗
+// 浏览器环境：window.print() 打印对话框
 // ============================================================================
 
 import type { AdaptationPlan } from '@/schema/types';
+
+function isElectron(): boolean {
+  return typeof (window as any).electronAPI?.printToPdf === 'function';
+}
+
+function getElectronAPI() {
+  return (window as any).electronAPI as {
+    printToPdf: () => Promise<ArrayBuffer>;
+    saveFile: (options: { defaultName: string; data: ArrayBuffer }) => Promise<string | null>;
+  } | null;
+}
 
 /** 清除指定ID的print style */
 function removePrintStyleById(id: string): void {
@@ -11,8 +23,7 @@ function removePrintStyleById(id: string): void {
   if (el) el.remove();
 }
 
-export function exportPlanPdf(): void {
-  // 清除其他阶段的 print style，确保只有改编规划可见
+export async function exportPlanPdf(): Promise<void> {
   removePrintStyleById('analysis-print-style');
   removePrintStyleById('screenplay-print-style');
   removePrintStyleById('full-project-print-style');
@@ -24,7 +35,19 @@ export function exportPlanPdf(): void {
     document.head.appendChild(styleEl);
   }
   addPlanWatermark();
-  window.print();
+
+  if (isElectron()) {
+    try {
+      const api = getElectronAPI()!;
+      const pdfData = await api.printToPdf();
+      await api.saveFile({ defaultName: '改编规划.pdf', data: pdfData });
+    } catch {
+      window.print();
+    }
+  } else {
+    window.print();
+  }
+
   setTimeout(removePlanWatermark, 1000);
 }
 
