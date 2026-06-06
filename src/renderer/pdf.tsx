@@ -52,15 +52,51 @@ function removeWatermark(): void {
 function getPrintCss(): string {
   return `
     @media print {
+      /* ========== 页面设置 ========== */
       @page {
         size: A4;
-        margin: 2.5cm 2cm 2.5cm 3.8cm;
+        margin: 2.5cm 2.5cm 2.5cm 3.8cm;
       }
+
       @page :first {
         margin-top: 4cm;
       }
 
-      body {
+      /* ========== 页码（右上角） ========== */
+      @page {
+        @top-right {
+          content: counter(page);
+          font-family: "Courier New", Courier, monospace;
+          font-size: 11pt;
+        }
+      }
+
+      @page :first {
+        @top-right {
+          content: none;
+        }
+      }
+
+      /* ========== 隐藏应用 UI，只显示打印视图 ========== */
+      body > * {
+        visibility: hidden !important;
+      }
+
+      #screenplay-print-view,
+      #screenplay-print-view * {
+        visibility: visible !important;
+      }
+
+      #screenplay-print-view {
+        position: absolute !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 100% !important;
+        display: block !important;
+      }
+
+      /* ========== 基础排版 ========== */
+      #screenplay-print-view {
         font-family: "Courier New", Courier, monospace;
         font-size: 12pt;
         line-height: 1.5;
@@ -68,85 +104,97 @@ function getPrintCss(): string {
         background: #fff !important;
       }
 
-      /* 隐藏非剧本元素 */
-      header, nav, .no-print, button, .toolbar {
-        display: none !important;
+      /* ========== 场景头 (Slugline) ========== */
+      .scene-heading {
+        margin: 18pt 0 6pt 0;
+        font-weight: bold;
+        text-transform: uppercase;
+        text-align: left;
       }
 
-      /* 动作行 */
+      .scene-number {
+        float: right;
+        font-weight: bold;
+      }
+
+      /* ========== 动作行 (Action) ========== */
       .beat-action {
         margin: 0 0 6pt 0;
         text-align: left;
         width: 100%;
       }
 
-      /* 角色名 */
+      /* ========== 角色名 (Character) ========== */
       .beat-character {
-        margin: 12pt 0 0 0;
-        text-align: center;
+        margin: 12pt 0 0 5.6cm;
         text-transform: uppercase;
         font-weight: bold;
-        padding-left: 6cm;
-      }
-
-      /* 对白 */
-      .beat-dialogue {
-        margin: 0 0 0 4cm;
-        max-width: 8cm;
         text-align: left;
       }
 
-      /* 括注 */
-      .beat-parenthetical {
-        margin: 0 0 0 5.5cm;
-        max-width: 7cm;
-        font-style: italic;
-        color: #333;
+      /* ========== 对白 (Dialogue) ========== */
+      .beat-dialogue {
+        margin: 0 0 0 2.5cm;
+        max-width: 9cm;
+        text-align: left;
       }
 
-      /* 转场 */
+      /* ========== 括注 (Parenthetical) ========== */
+      .beat-parenthetical {
+        margin: 0 0 0 4.1cm;
+        max-width: 7.5cm;
+        font-style: italic;
+      }
+
+      /* ========== 转场 (Transition) ========== */
       .beat-transition {
         text-align: right;
         margin: 6pt 0;
         text-transform: uppercase;
       }
 
-      /* 场景头 */
-      .scene-heading {
-        margin: 18pt 0 6pt 0;
-        font-weight: bold;
-        text-transform: uppercase;
-      }
-
-      /* 场景号 */
-      .scene-number {
-        float: right;
-        font-weight: bold;
-      }
-
-      /* 页码 */
-      .page-number {
-        position: fixed;
-        bottom: 1cm;
-        right: 1cm;
-        font-size: 11pt;
-        color: #999;
-      }
-
-      /* 标题页 */
+      /* ========== 标题页 ========== */
       .title-page {
         text-align: center;
         margin-top: 30%;
+        margin-bottom: 2cm;
       }
       .title-page h1 {
         font-size: 24pt;
         margin-bottom: 1cm;
+        text-decoration: underline;
+      }
+      .title-page .author {
+        font-size: 14pt;
+        margin-bottom: 2cm;
+      }
+      .title-page .meta {
+        font-size: 10pt;
+        color: #666;
       }
 
-      /* 水印 */
+      /* ========== 人物表 ========== */
+      .character-list h2 {
+        text-align: center;
+        text-transform: uppercase;
+        font-size: 14pt;
+        margin-bottom: 12pt;
+      }
+      .character-entry {
+        margin: 2pt 0;
+      }
+
+      /* ========== 分页 ========== */
+      .page-break-before {
+        page-break-before: always;
+      }
+
+      /* ========== 水印 ========== */
       #screenplay-watermark {
         position: fixed !important;
-        opacity: 0.05 !important;
+        visibility: visible !important;
+        opacity: 0.04 !important;
+        z-index: 9999;
       }
     }
 

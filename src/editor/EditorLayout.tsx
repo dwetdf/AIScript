@@ -1,12 +1,12 @@
 // ============================================================================
-// 编辑器布局 — 三栏：大纲 | 剧本 | 配置
+// 编辑器布局 — 两栏：大纲 | 剧本
+// v0.3.0: 移除右侧 ConfigPanel，修复 AppShell 内 height
 // ============================================================================
 
 import React from 'react';
 import { useScriptStore, useEditorStore } from '../store';
 import { ScriptView } from './views/ScriptView';
 import { OutlineView } from './views/OutlineView';
-import { ConfigPanel } from '../config/ConfigPanel';
 import { PdfExporter } from '../renderer/pdf';
 import './styles/editor-theme.css';
 
@@ -26,7 +26,7 @@ export const EditorLayout: React.FC = () => {
   }
 
   return (
-    <div style={{ display: 'flex', height: '100vh' }}>
+    <div style={{ display: 'flex', height: '100%' }}>
       {/* 左侧：大纲树 */}
       <div style={{ width: 220, borderRight: '1px solid #e0e0e0', overflow: 'auto', flexShrink: 0, background: '#fafafa' }}>
         <OutlineView />
@@ -50,11 +50,6 @@ export const EditorLayout: React.FC = () => {
           <PdfExporter />
         </div>
         <ScriptView />
-      </div>
-
-      {/* 右侧：配置面板 */}
-      <div style={{ width: 280, borderLeft: '1px solid #e0e0e0', overflow: 'auto', flexShrink: 0, background: '#fafafa' }}>
-        <ConfigPanel />
       </div>
     </div>
   );

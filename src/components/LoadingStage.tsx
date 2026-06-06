@@ -8,10 +8,14 @@ import React, { useEffect, useState, useMemo } from 'react';
 interface Props {
   stage: 'analyzing' | 'planning' | 'expanding';
   message: string;
-  /** 场景名（展开阶段使用） */
+  /** 场景名（展开阶段，单场景或向后兼容） */
   sceneName?: string;
+  /** 并行场景名列表（展开阶段，并发时使用） */
+  sceneNames?: string[];
   /** 当前/总数（展开阶段） */
   progress?: { current: number; total: number };
+  /** 并发数（用于预估剩余时间） */
+  concurrency?: number;
 }
 
 /** 每个阶段的趣味提示 */
@@ -40,7 +44,7 @@ const FUN_TIPS: Record<string, string[]> = {
   ],
 };
 
-export const LoadingStage: React.FC<Props> = ({ stage, message, sceneName, progress }) => {
+export const LoadingStage: React.FC<Props> = ({ stage, message, sceneName, sceneNames, progress, concurrency }) => {
   const [tipIndex, setTipIndex] = useState(0);
   const tips = FUN_TIPS[stage] || ['处理中...'];
 
@@ -101,10 +105,19 @@ export const LoadingStage: React.FC<Props> = ({ stage, message, sceneName, progr
         </div>
       )}
 
-      {/* 当前场景名 */}
-      {sceneName && (
+      {/* 当前场景名（向后兼容） */}
+      {sceneName && !sceneNames?.length && (
         <div style={sceneBadge}>
           🎞️ 正在处理: <strong>{sceneName}</strong>
+        </div>
+      )}
+
+      {/* 并行场景名列表 */}
+      {sceneNames && sceneNames.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'center', marginBottom: 16, maxWidth: 400 }}>
+          {sceneNames.map((name, i) => (
+            <span key={i} style={runningBadge}>🎞️ {name}</span>
+          ))}
         </div>
       )}
 
@@ -117,7 +130,11 @@ export const LoadingStage: React.FC<Props> = ({ stage, message, sceneName, progr
       <p style={{ fontSize: 12, color: '#bbb', marginTop: 16 }}>
         {stage === 'analyzing' && '预计 30-60 秒，取决于小说长度'}
         {stage === 'planning' && '预计 20-40 秒'}
-        {stage === 'expanding' && progress && `预计 ${Math.max(1, Math.round((progress.total - progress.current) * 0.5))} 分钟`}
+        {stage === 'expanding' && progress && (() => {
+          const c = concurrency || 1;
+          const remaining = Math.max(1, Math.round((progress.total - progress.current) * 0.5 / c));
+          return `预计 ${remaining} 分钟（${c} 场景并行）`;
+        })()}
       </p>
     </div>
   );
@@ -201,6 +218,15 @@ const sceneBadge: React.CSSProperties = {
   fontSize: 13,
   color: '#1565c0',
   marginBottom: 16,
+};
+
+const runningBadge: React.CSSProperties = {
+  padding: '4px 12px',
+  background: '#fff3e0',
+  borderRadius: 12,
+  fontSize: 12,
+  color: '#e65100',
+  whiteSpace: 'nowrap',
 };
 
 const tipBubble: React.CSSProperties = {
