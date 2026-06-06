@@ -16,7 +16,7 @@ import { AnalysisPrintView } from './renderer/AnalysisPrintView';
 import { PlanPrintView } from './renderer/PlanPrintView';
 import {
   useProjectStore, useAnalysisStore, usePlanStore,
-  useScriptStore, useConfigStore, useEditorStore,
+  useScriptStore, useConfigStore, useEditorStore, useTaskStore,
 } from './store';
 import type { ProjectMeta } from './store/projectStore';
 import {
@@ -50,6 +50,13 @@ export const App: React.FC = () => {
   const analysis = useAnalysisStore((s) => s.analysis);
   const isProcessing = useEditorStore((s) => s.isProcessing);
   const processingStep = useEditorStore((s) => s.processingStep);
+
+  // 后台任务状态
+  const tasks = useTaskStore((s) => s.tasks);
+  const activeTaskCount = Object.values(tasks).filter((t) => t.status === 'running').length;
+  const bgProcessingMsg = activeTaskCount > 0
+    ? `${activeTaskCount} 个分析进行中`
+    : '';
 
   const activeProject = projects.find((p) => p.id === activeProjectId);
   const projectTitle = activeProject?.title || '';
@@ -170,7 +177,7 @@ export const App: React.FC = () => {
   const statusLeft = screenplay
     ? screenplay.metadata.title + ' ' + screenplay.acts.reduce((sum, a) => sum + a.scenes.reduce((ss, sc) => ss + sc.beats.length, 0), 0) + ' beats'
     : projects.length > 0 ? projects.length + ' 个项目' : '尚未导入小说';
-  const statusRight = isProcessing ? '处理中' : '就绪';
+  const statusRight = isProcessing ? '处理中' : (activeTaskCount > 0 ? `${activeTaskCount} 个后台分析` : '就绪');
 
   return (
     <>
@@ -182,7 +189,7 @@ export const App: React.FC = () => {
             onNavigate={setSection}
           />
         }
-        processing={isProcessing ? { step: processingStep } : undefined}
+        processing={isProcessing ? { step: processingStep } : (activeTaskCount > 0 ? { step: bgProcessingMsg } : undefined)}
         statusBar={{ left: statusLeft, right: statusRight }}
         onNavigate={setSection}
         headerActions={

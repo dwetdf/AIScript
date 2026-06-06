@@ -2,16 +2,15 @@
 // ScriptPage — 阶段3 剧本编辑全页
 // sub-tabs: 剧本编辑 / 人物表
 // 写作风格 + 补充指令 + 模板保存/加载（对标阶段 2 ConversionPresetPanel）
+// v0.7.0: 后台分析 — 任务不阻塞页面，可自由切换项目/阶段
 // ============================================================================
 
-import React, { useCallback } from 'react';
-import { useScriptStore, useConfigStore, useProjectStore, usePlanStore } from '../store';
-import { expandBeats } from '../converter';
-import { saveScreenplay } from '../api/endpoints';
-import { validate } from '../schema/validator';
+import React, { useCallback, useEffect } from 'react';
+import { useScriptStore, useConfigStore, useProjectStore, usePlanStore, useTaskStore } from '../store';
+import { startStage3Analysis, cancelTask } from '../background/taskManager';
+import { loadScreenplay } from '../api/endpoints';
 import { Editor } from '../editor';
-import { exportPdf, exportFullProjectPdf } from '../renderer/pdf';
-import { LoadingStage } from '../components/LoadingStage';
+import { exportFullProjectPdf } from '../renderer/pdf';
 import {
   DIALOGUE_DENSITY_OPTIONS, DIALOGUE_DENSITY_LABELS,
   ACTION_DETAIL_OPTIONS, ACTION_DETAIL_LABELS,
@@ -32,11 +31,14 @@ const TABS: Array<{ id: AppSection; label: string; icon: string }> = [
 
 export const ScriptPage: React.FC<Props> = ({ section, onSectionChange }) => {
   const screenplay = useScriptStore((s) => s.screenplay);
+  const setScreenplay = useScriptStore((s) => s.setScreenplay);
   const plan = usePlanStore((s) => s.plan);
   const aiConfig = useConfigStore((s) => s.aiConfig);
   const getProjectConfig = useConfigStore((s) => s.getProjectConfig);
   const setProjectConfig = useConfigStore((s) => s.setProjectConfig);
   const activeProjectId = useProjectStore((s) => s.activeProjectId);
+  const task = useTaskStore((s) => s.getTask(activeProjectId || '', 'stage3'));
+  const dismissNotification = useTaskStore((s) => s.dismissNotification);
 
   const projectConfig = getProjectConfig(activeProjectId || 'default');
 
@@ -44,185 +46,171 @@ export const ScriptPage: React.FC<Props> = ({ section, onSectionChange }) => {
     setProjectConfig(activeProjectId || 'default', { [key]: value });
   }, [activeProjectId, setProjectConfig]);
 
-  // ---- 展开状态 ----
-  const [isProcessing, setIsProcessing] = React.useState(false);
-  const [loadingMsg, setLoadingMsg] = React.useState('');
-  const [expandProgress, setExpandProgress] = React.useState<{
-    current: number; total: number; currentScenes: string[];
-  } | null>(null);
-  const abortRef = React.useRef<AbortController | null>(null);
-
-  const handleCancel = React.useCallback(() => {
-    abortRef.current?.abort();
-    setIsProcessing(false);
-    setLoadingMsg('');
-    setExpandProgress(null);
-    abortRef.current = null;
-  }, []);
-
-  const handleExpand = async () => {
-    if (!plan) return;
-    setIsProcessing(true);
-    setLoadingMsg('AI 正在展开场景 beat...');
-    setExpandProgress({ current: 0, total: plan.scene_plan.length, currentScenes: [] });
-
-    const controller = new AbortController();
-    abortRef.current = controller;
-
-    await new Promise((r) => setTimeout(r, 0));
-    try {
-      const concurrency = useConfigStore.getState().concurrency;
-      const cfg = useConfigStore.getState().getProjectConfig(activeProjectId || 'default');
-      // 阶段 3 专用指令优先，回退到通用指令
-      const stage3Instructions = cfg.stage3_custom_instructions || cfg.custom_instructions;
-      const screenplayData = await expandBeats(plan, aiConfig, {
-        concurrency,
-        customInstructions: stage3Instructions,
-        writingStyle: {
-          dialogue_density: cfg.dialogue_density,
-          action_detail_level: cfg.action_detail_level,
-          stage_direction_style: cfg.stage_direction_style,
-        },
-        onProgress: (completed, total, currentScenes) => {
-          setExpandProgress({ current: completed, total, currentScenes });
-          setLoadingMsg(`正在展开场景 ${completed}/${total}...`);
-        },
-        signal: controller.signal,
-      });
-      const vr = validate(screenplayData, 'screenplay');
-      if (!vr.valid) console.warn('Screenplay 校验警告:', vr.errors);
-      useScriptStore.getState().setScreenplay(screenplayData);
-      if (activeProjectId) {
-        saveScreenplay(activeProjectId, screenplayData);
-        useProjectStore.getState().updateProjectPhase(activeProjectId, 'scripted');
-      }
-      setIsProcessing(false);
-      setLoadingMsg('');
-      setExpandProgress(null);
-      abortRef.current = null;
-    } catch (e) {
-      if ((e as Error).name === 'AbortError') {
-        setIsProcessing(false);
-        setLoadingMsg('');
-        setExpandProgress(null);
-        abortRef.current = null;
-        return;
-      }
-      setIsProcessing(false);
-      setLoadingMsg('');
-      setExpandProgress(null);
-      abortRef.current = null;
-      console.error('Expand failed:', e);
+  // 页面挂载时清除该阶段的完成通知
+  useEffect(() => {
+    if (activeProjectId && task?.status === 'completed') {
+      dismissNotification(activeProjectId, 'stage3');
     }
+  }, [activeProjectId, task?.status, dismissNotification]);
+
+  // 任务刚完成时：自动从 localStorage 加载 screenplay 到内存
+  useEffect(() => {
+    if (activeProjectId && task?.status === 'completed' && !screenplay) {
+      const stored = loadScreenplay(activeProjectId);
+      if (stored) setScreenplay(stored);
+    }
+  }, [activeProjectId, task?.status, screenplay, setScreenplay]);
+
+  const handleStart = () => {
+    if (!plan || !activeProjectId) return;
+    const concurrency = useConfigStore.getState().concurrency;
+    const cfg = useConfigStore.getState().getProjectConfig(activeProjectId);
+    startStage3Analysis(activeProjectId, plan, cfg, aiConfig, concurrency);
+  };
+
+  const handleCancel = () => {
+    if (!activeProjectId) return;
+    cancelTask(activeProjectId, 'stage3');
   };
 
   const beatsCount = screenplay?.acts.reduce((s, a) => s + a.scenes.reduce((ss, sc) => ss + sc.beats.length, 0), 0) ?? 0;
   const sceneCount = screenplay?.acts.reduce((s, a) => s + a.scenes.length, 0) ?? 0;
 
-  // ---- Loading 态 ----
-  if (isProcessing) {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-        <LoadingStage
-          stage="expanding"
-          message={loadingMsg}
-          sceneNames={expandProgress?.currentScenes}
-          progress={expandProgress || undefined}
-          concurrency={useConfigStore.getState().concurrency}
-          onCancel={handleCancel}
-        />
-      </div>
-    );
-  }
-
-  // ---- 无剧本：完整配置面板 + 展开按钮 ----
-  if (!screenplay) {
-    return (
-      <div style={{ textAlign: 'center', padding: '40px 24px', overflow: 'auto', height: '100%' }}>
-        <div style={{ fontSize: 36, marginBottom: 8 }}>📝</div>
-        <h3 style={{ marginBottom: 4 }}>阶段 3：剧本</h3>
-        <p style={{ color: '#888', marginBottom: 28 }}>
-          {plan ? '配置写作风格和补充指令，然后展开 Beat' : '请先在「改编规划」页完成阶段 2'}
-        </p>
-
-        {/* 阶段 3 配置面板 */}
-        <Stage3PresetPanel
-          projectId={activeProjectId || 'default'}
-          config={projectConfig}
-          onChange={updateConfig}
-          onExpand={plan ? handleExpand : undefined}
-        />
-      </div>
-    );
-  }
-
   // ---- 有剧本：编辑器 + 工具栏 ----
-  return (
-    <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      {/* Sub-tab 导航 */}
-      <div style={{
-        display: 'flex', gap: 0, padding: '0 24px',
-        borderBottom: '1px solid #e0e0e0', background: '#fff', flexShrink: 0,
-        alignItems: 'center',
-      }}>
-        {TABS.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => onSectionChange(tab.id)}
-            style={{
-              padding: '10px 18px',
-              border: 'none',
-              borderBottom: section === tab.id ? '2px solid #1976d2' : '2px solid transparent',
-              background: 'transparent',
-              cursor: 'pointer',
-              fontWeight: section === tab.id ? 600 : 400,
-              color: section === tab.id ? '#1976d2' : '#666',
-              fontSize: 13,
-              marginBottom: -1,
-            }}
-          >
-            {tab.icon} {tab.label}
-          </button>
-        ))}
-        <div style={{ flex: 1 }} />
-
-        {/* Export */}
-        <button onClick={exportFullProjectPdf} style={{
-          padding: '6px 14px', border: '1px solid #1976d2', borderRadius: 6,
-          background: '#1976d2', color: '#fff', cursor: 'pointer', fontSize: 12,
-          fontWeight: 500, display: 'flex', alignItems: 'center', gap: 4,
-          marginRight: 8, marginBottom: 8, whiteSpace: 'nowrap',
+  if (screenplay) {
+    return (
+      <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+        {/* Sub-tab 导航 */}
+        <div style={{
+          display: 'flex', gap: 0, padding: '0 24px',
+          borderBottom: '1px solid #e0e0e0', background: '#fff', flexShrink: 0,
+          alignItems: 'center',
         }}>
-          🖨 导出全部 PDF
-        </button>
+          {TABS.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => onSectionChange(tab.id)}
+              style={{
+                padding: '10px 18px',
+                border: 'none',
+                borderBottom: section === tab.id ? '2px solid #1976d2' : '2px solid transparent',
+                background: 'transparent',
+                cursor: 'pointer',
+                fontWeight: section === tab.id ? 600 : 400,
+                color: section === tab.id ? '#1976d2' : '#666',
+                fontSize: 13,
+                marginBottom: -1,
+              }}
+            >
+              {tab.icon} {tab.label}
+            </button>
+          ))}
+          <div style={{ flex: 1 }} />
 
-        <span style={{ fontSize: 11, color: '#999', alignSelf: 'center', marginBottom: 8 }}>
-          {beatsCount} beats · {screenplay.acts.length} 幕 · {sceneCount} 场
-        </span>
-      </div>
+          {/* Export */}
+          <button onClick={exportFullProjectPdf} style={{
+            padding: '6px 14px', border: '1px solid #1976d2', borderRadius: 6,
+            background: '#1976d2', color: '#fff', cursor: 'pointer', fontSize: 12,
+            fontWeight: 500, display: 'flex', alignItems: 'center', gap: 4,
+            marginRight: 8, marginBottom: 8, whiteSpace: 'nowrap',
+          }}>
+            🖨 导出全部 PDF
+          </button>
 
-      {/* 内容区 */}
-      <div style={{ flex: 1, overflow: 'hidden' }}>
-        {section === 'script_characters' ? (
-          <div style={{ padding: 24, overflow: 'auto', height: '100%' }}>
-            <h3 style={{ marginTop: 0 }}>👤 人物表 ({screenplay.characters.length})</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 8 }}>
-              {screenplay.characters.map((c) => (
-                <div key={c.character_id} style={{
-                  padding: '10px 14px', border: '1px solid #e8e8e8',
-                  borderRadius: 6, background: '#fff', fontSize: 13,
-                }}>
-                  <div style={{ fontWeight: 600 }}>{c.name}</div>
-                  <div style={{ fontSize: 11, color: '#888' }}>{c.character_id}</div>
-                  {c.description && <div style={{ fontSize: 11, color: '#555', marginTop: 4 }}>{c.description}</div>}
-                </div>
-              ))}
+          <span style={{ fontSize: 11, color: '#999', alignSelf: 'center', marginBottom: 8 }}>
+            {beatsCount} beats · {screenplay.acts.length} 幕 · {sceneCount} 场
+          </span>
+        </div>
+
+        {/* 内容区 */}
+        <div style={{ flex: 1, overflow: 'hidden' }}>
+          {section === 'script_characters' ? (
+            <div style={{ padding: 24, overflow: 'auto', height: '100%' }}>
+              <h3 style={{ marginTop: 0 }}>👤 人物表 ({screenplay.characters.length})</h3>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 8 }}>
+                {screenplay.characters.map((c) => (
+                  <div key={c.character_id} style={{
+                    padding: '10px 14px', border: '1px solid #e8e8e8',
+                    borderRadius: 6, background: '#fff', fontSize: 13,
+                  }}>
+                    <div style={{ fontWeight: 600 }}>{c.name}</div>
+                    <div style={{ fontSize: 11, color: '#888' }}>{c.character_id}</div>
+                    {c.description && <div style={{ fontSize: 11, color: '#555', marginTop: 4 }}>{c.description}</div>}
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
-        ) : (
-          <Editor />
-        )}
+          ) : (
+            <Editor />
+          )}
+        </div>
       </div>
+    );
+  }
+
+  // ---- 无剧本：配置面板 + 启动按钮（可能带进度条） ----
+  return (
+    <div style={{ textAlign: 'center', padding: '40px 24px', overflow: 'auto', height: '100%' }}>
+      <div style={{ fontSize: 36, marginBottom: 8 }}>📝</div>
+      <h3 style={{ marginBottom: 4 }}>阶段 3：剧本</h3>
+      <p style={{ color: '#888', marginBottom: 28 }}>
+        {plan ? '配置写作风格和补充指令，然后展开 Beat' : '请先在「改编规划」页完成阶段 2'}
+      </p>
+
+      {/* 阶段 3 配置面板 */}
+      <Stage3PresetPanel
+        projectId={activeProjectId || 'default'}
+        config={projectConfig}
+        onChange={updateConfig}
+        onExpand={plan && (!task || task.status === 'failed') ? handleStart : undefined}
+      />
+
+      {/* 后台任务进度条 */}
+      {task && task.status === 'running' && (
+        <div style={{
+          margin: '16px auto 0', padding: '12px 20px',
+          background: '#fff8e1', border: '1px solid #ffe0b2', borderRadius: 8,
+          display: 'inline-block', minWidth: 360, maxWidth: 480, textAlign: 'left',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+            <span style={{ fontSize: 18 }}>⏳</span>
+            <span style={{ fontSize: 13, color: '#e65100', flex: 1 }}>{task.message}</span>
+            <button onClick={handleCancel} style={cancelBtn}>取消</button>
+          </div>
+          {task.progress && (
+            <div>
+              <div style={{
+                height: 4, background: '#e0e0e0', borderRadius: 2, overflow: 'hidden',
+                marginBottom: 6,
+              }}>
+                <div style={{
+                  height: '100%', width: `${Math.round((task.progress.current / (task.progress.total || 1)) * 100)}%`,
+                  background: '#ff9800', borderRadius: 2,
+                  transition: 'width 0.3s ease',
+                }} />
+              </div>
+              {task.progress.currentScenes && task.progress.currentScenes.length > 0 && (
+                <div style={{ fontSize: 11, color: '#888' }}>
+                  正在处理：{task.progress.currentScenes.slice(0, 3).join(', ')}
+                  {task.progress.currentScenes.length > 3 ? '...' : ''}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 失败状态 */}
+      {task && task.status === 'failed' && (
+        <div style={{
+          marginTop: 16, padding: '12px 20px',
+          background: '#ffebee', border: '1px solid #ef9a9a', borderRadius: 8,
+          display: 'inline-block', minWidth: 360, textAlign: 'left',
+        }}>
+          <div style={{ fontSize: 13, color: '#c62828', marginBottom: 6 }}>❌ {task.error || '展开失败'}</div>
+          <button onClick={handleStart} style={{ ...primaryBtnSmall }}>重试</button>
+        </div>
+      )}
     </div>
   );
 };
@@ -425,4 +413,14 @@ const selectStyle: React.CSSProperties = {
 const primaryBtn: React.CSSProperties = {
   padding: '14px 32px', background: '#1976d2', color: '#fff',
   border: 'none', borderRadius: 8, fontSize: 16, cursor: 'pointer', fontWeight: 600,
+};
+
+const primaryBtnSmall: React.CSSProperties = {
+  padding: '8px 20px', background: '#1976d2', color: '#fff',
+  border: 'none', borderRadius: 6, fontSize: 13, cursor: 'pointer', fontWeight: 600,
+};
+
+const cancelBtn: React.CSSProperties = {
+  padding: '4px 12px', border: '1px solid #ccc', borderRadius: 4,
+  background: '#fff', cursor: 'pointer', fontSize: 12, color: '#888',
 };
