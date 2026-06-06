@@ -5,15 +5,15 @@
 // ============================================================================
 
 import React from 'react';
-import { usePlanStore, useConfigStore, useScriptStore, useAnalysisStore, useProjectStore } from '../store';
+import { usePlanStore, useConfigStore, useAnalysisStore, useProjectStore } from '../store';
 import { planAdaptation } from '../planner';
-import { expandBeats } from '../converter';
-import { savePlan, saveScreenplay } from '../api/endpoints';
+import { savePlan } from '../api/endpoints';
 import { validate } from '../schema/validator';
 import { PlanStatBar, StrategySection, ActsSection, ScenesSection } from './PlanPreview';
 import { exportPlanPdf, exportPlanHtml } from '../renderer/planExport';
 import { copyToClipboard } from '../shared/download';
 import { LoadingStage } from '../components/LoadingStage';
+import { ConversionPresetPanel } from './ConversionPresetPanel';
 import type { AppSection } from '../components/AppShell';
 
 interface Props {
@@ -31,16 +31,12 @@ const TABS: Array<{ id: AppSection; label: string; icon: string }> = [
 export const PlanPage: React.FC<Props> = ({ section, onSectionChange }) => {
   const plan = usePlanStore((s) => s.plan);
   const analysis = useAnalysisStore((s) => s.analysis);
-  const screenplay = useScriptStore((s) => s.screenplay);
   const aiConfig = useConfigStore((s) => s.aiConfig);
   const activeProjectId = useProjectStore((s) => s.activeProjectId);
 
   const [isProcessing, setIsProcessing] = React.useState(false);
   const [loadingMsg, setLoadingMsg] = React.useState('');
   const [planningStep, setPlanningStep] = React.useState<'strategy' | 'episode' | null>(null);
-  const [expandProgress, setExpandProgress] = React.useState<{
-    current: number; total: number; currentScenes: string[];
-  } | null>(null);
   const [copied, setCopied] = React.useState(false);
 
   const abortRef = React.useRef<AbortController | null>(null);
@@ -50,7 +46,6 @@ export const PlanPage: React.FC<Props> = ({ section, onSectionChange }) => {
     setIsProcessing(false);
     setLoadingMsg('');
     setPlanningStep(null);
-    setExpandProgress(null);
     abortRef.current = null;
   }, []);
 
@@ -61,7 +56,7 @@ export const PlanPage: React.FC<Props> = ({ section, onSectionChange }) => {
     setPlanningStep(null);
     await new Promise((r) => setTimeout(r, 0));
     try {
-      const config = useConfigStore.getState().conversionConfig;
+      const config = useConfigStore.getState().getProjectConfig(activeProjectId || 'default');
       const adaptationPlan = await planAdaptation(analysis, config, aiConfig, {
         onProgress: (step, done) => {
           setPlanningStep(done ? (step === 'strategy' ? 'episode' : null) : step);
@@ -87,56 +82,6 @@ export const PlanPage: React.FC<Props> = ({ section, onSectionChange }) => {
     }
   };
 
-  const handleExpand = async () => {
-    if (!plan) return;
-    setIsProcessing(true);
-    setLoadingMsg('AI 正在展开场景 beat...');
-    setExpandProgress({ current: 0, total: plan.scene_plan.length, currentScenes: [] });
-
-    // 创建 AbortController
-    const controller = new AbortController();
-    abortRef.current = controller;
-
-    await new Promise((r) => setTimeout(r, 0));
-    try {
-      const concurrency = useConfigStore.getState().concurrency;
-      const screenplayData = await expandBeats(plan, aiConfig, {
-        concurrency,
-        onProgress: (completed, total, currentScenes) => {
-          setExpandProgress({ current: completed, total, currentScenes });
-          setLoadingMsg(`正在展开场景 ${completed}/${total}...`);
-        },
-        signal: controller.signal,
-      });
-      const vr = validate(screenplayData, 'screenplay');
-      if (!vr.valid) console.warn('Screenplay 校验警告:', vr.errors);
-      useScriptStore.getState().setScreenplay(screenplayData);
-      if (activeProjectId) {
-        saveScreenplay(activeProjectId, screenplayData);
-        useProjectStore.getState().updateProjectPhase(activeProjectId, 'scripted');
-      }
-      setIsProcessing(false);
-      setLoadingMsg('');
-      setExpandProgress(null);
-      abortRef.current = null;
-      onSectionChange('script_edit');
-    } catch (e) {
-      if ((e as Error).name === 'AbortError') {
-        // 用户取消 — 保留已展开的 partial screenplay
-        setIsProcessing(false);
-        setLoadingMsg('');
-        setExpandProgress(null);
-        abortRef.current = null;
-        return;
-      }
-      setIsProcessing(false);
-      setLoadingMsg('');
-      setExpandProgress(null);
-      abortRef.current = null;
-      console.error('Expand failed:', e);
-    }
-  };
-
   const handleCopy = async () => {
     if (!plan) return;
     const ok = await copyToClipboard(JSON.stringify(plan, null, 2));
@@ -152,12 +97,9 @@ export const PlanPage: React.FC<Props> = ({ section, onSectionChange }) => {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
         <LoadingStage
-          stage={expandProgress ? 'expanding' : 'planning'}
+          stage="planning"
           message={loadingMsg}
           planningStep={planningStep || undefined}
-          sceneNames={expandProgress?.currentScenes}
-          progress={expandProgress || undefined}
-          concurrency={useConfigStore.getState().concurrency}
           onCancel={handleCancel}
         />
       </div>
@@ -166,11 +108,20 @@ export const PlanPage: React.FC<Props> = ({ section, onSectionChange }) => {
 
   if (!plan) {
     return (
-      <div style={{ textAlign: 'center', padding: 80 }}>
-        <div style={{ fontSize: 48, marginBottom: 16 }}>🎬</div>
-        <h3>尚未生成改编规划</h3>
-        <p style={{ color: '#888', marginBottom: 24 }}>需要先完成阶段1 小说分析</p>
-        <button onClick={handlePlan} style={primaryBtn}>→ 开始改编规划（阶段 2/3）</button>
+      <div style={{ textAlign: 'center', padding: '40px 24px', overflow: 'auto', height: '100%' }}>
+        <div style={{ fontSize: 36, marginBottom: 8 }}>🎬</div>
+        <h3 style={{ marginBottom: 8 }}>阶段 2：改编规划</h3>
+        <p style={{ color: '#888', marginBottom: 28 }}>先配置创作预设，再启动 AI 改编规划</p>
+
+        {/* 创作预设面板 */}
+        <ConversionPresetPanel projectId={activeProjectId || 'default'} />
+
+        {/* 开始按钮 */}
+        <button onClick={handlePlan} style={{
+          ...primaryBtn, marginTop: 16,
+        }}>
+          → 开始改编规划（阶段 2/3）
+        </button>
       </div>
     );
   }
@@ -248,15 +199,6 @@ export const PlanPage: React.FC<Props> = ({ section, onSectionChange }) => {
             {copied ? '✅ 已复制' : '📋 复制 JSON'}
           </button>
         </div>
-
-        {!screenplay && (
-          <button onClick={handleExpand} style={{
-            ...primaryBtn, padding: '8px 20px', fontSize: 13,
-            alignSelf: 'center', marginBottom: 8, marginLeft: 8,
-          }}>
-            → 展开 Beat（阶段 3/3）
-          </button>
-        )}
       </div>
       <div style={{ flex: 1, overflow: 'auto', padding: 24 }}>
         {renderContent()}
