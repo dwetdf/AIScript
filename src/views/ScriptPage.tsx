@@ -7,7 +7,7 @@
 import React from 'react';
 import { useScriptStore } from '../store';
 import { Editor } from '../editor';
-import { exportPdf } from '../renderer/pdf';
+import { exportPdf, exportFullProjectPdf } from '../renderer/pdf';
 import type { AppSection } from '../components/AppShell';
 
 interface Props {
@@ -65,13 +65,24 @@ export const ScriptPage: React.FC<Props> = ({ section, onSectionChange }) => {
         <div style={{ flex: 1 }} />
 
         {/* Export */}
-        <button onClick={exportPdf} style={{
-          padding: '6px 14px', border: '1px solid #1976d2', borderRadius: 6,
-          background: '#1976d2', color: '#fff', cursor: 'pointer', fontSize: 12,
-          fontWeight: 500, display: 'flex', alignItems: 'center', gap: 4, marginRight: 8, marginBottom: 8,
-        }}>
-          🖨 导出 PDF
-        </button>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginRight: 8, marginBottom: 8 }}>
+          <button onClick={exportFullProjectPdf} style={{
+            padding: '6px 14px', border: '1px solid #1976d2', borderRadius: 6,
+            background: '#1976d2', color: '#fff', cursor: 'pointer', fontSize: 12,
+            fontWeight: 500, display: 'flex', alignItems: 'center', gap: 4,
+            whiteSpace: 'nowrap',
+          }}>
+            🖨 导出全项目 PDF
+          </button>
+          <button onClick={exportPdf} style={{
+            padding: '6px 14px', border: '1px solid #d0d0d0', borderRadius: 6,
+            background: '#fff', cursor: 'pointer', fontSize: 12,
+            fontWeight: 500, display: 'flex', alignItems: 'center', gap: 4,
+            whiteSpace: 'nowrap',
+          }}>
+            📄 仅剧本 PDF
+          </button>
+        </div>
 
         <span style={{ fontSize: 11, color: '#999', alignSelf: 'center', marginBottom: 8 }}>
           {beatsCount} beats · {screenplay.acts.length} 幕 · {sceneCount} 场

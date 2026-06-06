@@ -4,7 +4,18 @@
 
 import type { NovelAnalysis } from '@/schema/types';
 
+/** 清除指定ID的print style */
+function removePrintStyleById(id: string): void {
+  const el = document.getElementById(id);
+  if (el) el.remove();
+}
+
 export function exportAnalysisPdf(): void {
+  // 清除其他阶段的 print style，确保只有分析报告可见
+  removePrintStyleById('screenplay-print-style');
+  removePrintStyleById('plan-print-style');
+  removePrintStyleById('full-project-print-style');
+
   if (!document.getElementById('analysis-print-style')) {
     const styleEl = document.createElement('style');
     styleEl.id = 'analysis-print-style';
