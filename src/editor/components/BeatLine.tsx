@@ -97,11 +97,6 @@ export const BeatLine: React.FC<Props> = ({ beat, index, sceneGlobalNumber, tota
         minHeight: 24,
       }}
     >
-      {/* Gutter AI marker */}
-      {showAiMarkers && !isAiGen && (
-        <AiBadge isAiGenerated={false} sourceRef={beat.source_ref} />
-      )}
-
       {/* Beat ID */}
       <span style={{ fontSize: 9, color: '#bbb', minWidth: 50, paddingTop: 2, flexShrink: 0, fontFamily: 'monospace' }}>
         {beat.beat_id.replace('E1A', '')}

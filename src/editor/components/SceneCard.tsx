@@ -20,7 +20,6 @@ export const SceneCard: React.FC<Props> = ({ scene, viewMode }) => {
   const setEditingBeatId = useEditorStore((s) => s.setEditingBeatId);
   const insertBeat = useScriptStore((s) => s.insertBeat);
   const regenerateScene = useScriptStore((s) => s.regenerateScene);
-  const showAiMarkers = useEditorStore((s) => s.showAiMarkers);
   const regeneratingScenes = useEditorStore((s) => s.regeneratingSceneNumbers);
   const isRegenerating = regeneratingScenes.has(scene.scene_global_number);
 
@@ -28,9 +27,6 @@ export const SceneCard: React.FC<Props> = ({ scene, viewMode }) => {
   const [regenMode, setRegenMode] = React.useState<'improve' | 'rewrite'>('improve');
   const [regenError, setRegenError] = React.useState<string | null>(null);
   const [flashGreen, setFlashGreen] = React.useState(false);
-
-  const allAiGenerated = scene.beats.every(b => b.is_ai_generated !== false);
-  const hasSourceBeat = scene.beats.some(b => b.is_ai_generated === false);
 
   const handleAddBeat = () => {
     const newBeat = createEmptyBeat(scene.scene_global_number);
@@ -82,22 +78,6 @@ export const SceneCard: React.FC<Props> = ({ scene, viewMode }) => {
           <strong>{scene.scene_heading}</strong>
           {scene.scene_heading_override && (
             <span style={{ fontSize: 10, color: '#e65100' }}>已修改</span>
-          )}
-          {showAiMarkers && allAiGenerated && scene.beats.length > 0 && (
-            <span style={{
-              fontSize: 10, background: '#fff3e0', color: '#e65100',
-              padding: '1px 6px', borderRadius: 8, fontWeight: 500,
-            }}>
-              AI 生成 · {scene.beats.length} beats
-            </span>
-          )}
-          {showAiMarkers && hasSourceBeat && (
-            <span style={{
-              fontSize: 10, background: '#e8f5e9', color: '#2e7d32',
-              padding: '1px 6px', borderRadius: 8, fontWeight: 500,
-            }}>
-              含原著引用
-            </span>
           )}
           {/* Regenerate button */}
           <button
