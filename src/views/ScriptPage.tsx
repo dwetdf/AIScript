@@ -186,20 +186,6 @@ export const ScriptPage: React.FC<Props> = ({ section, onSectionChange }) => {
         ))}
         <div style={{ flex: 1 }} />
 
-        {/* 重新展开按钮 */}
-        {plan && (
-          <button onClick={handleExpand} style={{
-            padding: '5px 12px', border: '1px solid #1976d2', borderRadius: 5,
-            background: '#fff', color: '#1976d2', cursor: 'pointer', fontSize: 11,
-            fontWeight: 500, marginRight: 12, marginBottom: 8,
-          }}>
-            🔄 重新展开
-          </button>
-        )}
-
-        {/* 写作风格（紧凑） */}
-        <WritingStyleCompact config={projectConfig} onChange={updateConfig} />
-
         {/* Export */}
         <button onClick={exportFullProjectPdf} style={{
           padding: '6px 14px', border: '1px solid #1976d2', borderRadius: 6,
@@ -419,48 +405,6 @@ const Stage3PresetPanel: React.FC<Stage3PresetPanelProps> = ({ projectId, config
     </div>
   );
 };
-
-// ====== 工具栏紧凑组件 ======
-
-/** 紧凑版 — 剧本已生成时嵌入工具栏 */
-const WritingStyleCompact: React.FC<{
-  config: ConversionConfig;
-  onChange: <K extends keyof ConversionConfig>(key: K, value: ConversionConfig[K]) => void;
-}> = ({ config, onChange }) => (
-  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginRight: 16 }}>
-    <span style={{ fontSize: 10, color: '#bbb', whiteSpace: 'nowrap' }}>写作风格</span>
-    <CompactSelect label="对白" value={config.dialogue_density}
-      onChange={(v) => onChange('dialogue_density', v as ConversionConfig['dialogue_density'])}
-      options={DIALOGUE_DENSITY_OPTIONS as unknown as string[]} labels={DIALOGUE_DENSITY_LABELS} />
-    <CompactSelect label="动作" value={config.action_detail_level}
-      onChange={(v) => onChange('action_detail_level', v as ConversionConfig['action_detail_level'])}
-      options={ACTION_DETAIL_OPTIONS as unknown as string[]} labels={ACTION_DETAIL_LABELS} />
-    <CompactSelect label="指示" value={config.stage_direction_style}
-      onChange={(v) => onChange('stage_direction_style', v as ConversionConfig['stage_direction_style'])}
-      options={STAGE_DIRECTION_OPTIONS as unknown as string[]} labels={STAGE_DIRECTION_LABELS} />
-  </div>
-);
-
-const CompactSelect: React.FC<{
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  options: string[];
-  labels: Record<string, string>;
-}> = ({ label, value, onChange, options, labels }) => (
-  <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-    <span style={{ fontSize: 10, color: '#999', whiteSpace: 'nowrap' }}>{label}</span>
-    <select value={value} onChange={(e) => onChange(e.target.value)}
-      style={{
-        padding: '3px 4px', borderRadius: 3, border: '1px solid #d0d0d0',
-        fontSize: 11, background: '#fff', maxWidth: 72,
-      }}>
-      {options.map((o) => (
-        <option key={o} value={o}>{labels[o] ?? o}</option>
-      ))}
-    </select>
-  </div>
-);
 
 // ====== Shared styles ======
 
