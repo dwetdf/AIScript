@@ -1,5 +1,6 @@
 // ============================================================================
 // BeatLine — 核心组件：单行 beat 编辑器 (F67, F68, F72)
+// v0.5.0: Enter键保存 + 修复撤销/重做死代码
 // ============================================================================
 
 import React from 'react';
@@ -27,15 +28,6 @@ export const BeatLine: React.FC<Props> = ({ beat, index, sceneGlobalNumber, onCl
 
   const handleDoubleClick = () => {
     setEditingBeatId(beat.beat_id);
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Escape') {
-      setEditingBeatId(null);
-    }
-    if (e.key === 'Enter' && e.ctrlKey) {
-      setEditingBeatId(null);
-    }
   };
 
   return (
@@ -160,6 +152,7 @@ const RenderedContent: React.FC<{ beat: Beat }> = ({ beat }) => {
 /** 内联编辑器 */
 const EditableContent: React.FC<{ beat: Beat; onSave: () => void }> = ({ beat, onSave }) => {
   const updateBeat = useScriptStore((s) => s.updateBeat);
+  const setEditingBeatId = useEditorStore((s) => s.setEditingBeatId);
   const [text, setText] = React.useState(getEditableText(beat));
 
   const handleSave = () => {
@@ -168,13 +161,22 @@ const EditableContent: React.FC<{ beat: Beat; onSave: () => void }> = ({ beat, o
     onSave();
   };
 
+  const handleEsc = () => setEditingBeatId(null);
+  const handleEnter = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSave();
+    }
+  };
+
   return (
-    <div onKeyDown={(e) => { if (e.key === 'Escape') onSave(); }}>
+    <div>
       {beat.beat_type === 'dialogue' || beat.beat_type === 'voice_over' || beat.beat_type === 'off_screen' ? (
         <div>
           <input
             value={(beat as { character_name_display?: string; character_id: string }).character_name_display || (beat as { character_id: string }).character_id}
             onChange={(e) => updateBeat(beat.beat_id, { character_name_display: e.target.value } as Partial<Beat>)}
+            onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') handleEsc(); }}
             style={{ ...editInputStyle, fontWeight: 600, textTransform: 'uppercase', marginBottom: 2 }}
             placeholder="角色名"
           />
@@ -182,6 +184,7 @@ const EditableContent: React.FC<{ beat: Beat; onSave: () => void }> = ({ beat, o
             value={text}
             onChange={(e) => setText(e.target.value)}
             onBlur={handleSave}
+            onKeyDown={handleEnter}
             autoFocus
             style={{ ...editInputStyle, width: '100%', minHeight: 40 }}
             placeholder="对白内容"
@@ -192,13 +195,14 @@ const EditableContent: React.FC<{ beat: Beat; onSave: () => void }> = ({ beat, o
           value={text}
           onChange={(e) => setText(e.target.value)}
           onBlur={handleSave}
+          onKeyDown={handleEnter}
           autoFocus
           style={{ ...editInputStyle, width: '100%', minHeight: 36 }}
           placeholder="编辑内容"
         />
       )}
       <div style={{ fontSize: 10, color: '#999', marginTop: 2 }}>
-        Enter 保存 · Esc 取消
+        Enter 保存 · Shift+Enter 换行 · Esc 取消
       </div>
     </div>
   );
