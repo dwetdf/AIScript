@@ -5,7 +5,18 @@
 
 import type { AdaptationPlan } from '@/schema/types';
 
+/** 清除指定ID的print style */
+function removePrintStyleById(id: string): void {
+  const el = document.getElementById(id);
+  if (el) el.remove();
+}
+
 export function exportPlanPdf(): void {
+  // 清除其他阶段的 print style，确保只有改编规划可见
+  removePrintStyleById('analysis-print-style');
+  removePrintStyleById('screenplay-print-style');
+  removePrintStyleById('full-project-print-style');
+
   if (!document.getElementById('plan-print-style')) {
     const styleEl = document.createElement('style');
     styleEl.id = 'plan-print-style';

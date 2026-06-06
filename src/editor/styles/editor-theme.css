@@ -63,3 +63,9 @@
   background: #c1c1c1;
   border-radius: 4px;
 }
+
+/* 骨架屏脉冲动画 */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}

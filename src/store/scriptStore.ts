@@ -6,6 +6,10 @@
 import { create } from 'zustand';
 import type { Screenplay, Beat, Scene, Character } from '../schema/types';
 import { generateBeatId } from '../shared/id-generator';
+import { expandSingleScene } from '../converter/index';
+import { usePlanStore } from './planStore';
+import { useConfigStore } from './configStore';
+import { useEditorStore } from './editorStore';
 
 interface ScriptStore {
   screenplay: Screenplay | null;
@@ -22,6 +26,9 @@ interface ScriptStore {
   insertScene: (actNumber: number, index: number, scene: Scene) => void;
   deleteScene: (sceneGlobalNumber: number) => void;
   moveScene: (sceneGlobalNumber: number, newActNumber: number, newIndex: number) => void;
+
+  // AI 重新生成场景
+  regenerateScene: (sceneGlobalNumber: number, mode: 'rewrite' | 'improve') => Promise<void>;
 
   // Character 编辑 (F70, F71)
   updateCharacter: (characterId: string, patch: Partial<Character>) => void;
@@ -208,6 +215,62 @@ export const useScriptStore = create<ScriptStore>((set, get) => ({
 
   isDirty: false,
   markClean: () => set({ isDirty: false }),
+
+  // ---------- AI 重新生成场景 ----------
+
+  regenerateScene: async (sceneGlobalNumber, mode) => {
+    const plan = usePlanStore.getState().plan;
+    if (!plan) throw new Error('无改编规划数据');
+
+    const scenePlan = plan.scene_plan.find(sp => sp.scene_global_number === sceneGlobalNumber);
+    if (!scenePlan) throw new Error(`未找到场景 ${sceneGlobalNumber} 的规划数据`);
+
+    const aiConfig = useConfigStore.getState().aiConfig;
+    if (!aiConfig) throw new Error('未配置 AI 引擎');
+
+    // Mark as regenerating
+    useEditorStore.getState().toggleRegenerating(sceneGlobalNumber);
+
+    try {
+      const currentScreenplay = get().screenplay;
+      let previousBeats: Beat[] | undefined;
+      if (currentScreenplay && mode === 'improve') {
+        for (const act of currentScreenplay.acts) {
+          const scene = act.scenes.find(s => s.scene_global_number === sceneGlobalNumber);
+          if (scene) { previousBeats = scene.beats; break; }
+        }
+      }
+
+      const characters = currentScreenplay?.characters;
+      const locations = currentScreenplay?.locations;
+
+      const result = await expandSingleScene(scenePlan, aiConfig, {
+        mode,
+        previousBeats,
+        characters,
+        locations,
+      });
+
+      // Replace beats in the screenplay
+      set((s) => {
+        if (!s.screenplay) return s;
+        const screenplay = structuredClone(s.screenplay);
+        for (const act of screenplay.acts) {
+          const scene = act.scenes.find(sc => sc.scene_global_number === sceneGlobalNumber);
+          if (scene) {
+            scene.beats = result.beats;
+            scene.tension_level = result.tension_level;
+            scene.estimated_duration_seconds = result.beats.reduce((sum, b) => sum + (b.estimated_duration_seconds || 0), 0);
+            break;
+          }
+        }
+        renumberBeats(screenplay);
+        return { screenplay, isDirty: true };
+      });
+    } finally {
+      useEditorStore.getState().toggleRegenerating(sceneGlobalNumber);
+    }
+  },
 }));
 
 // ============================== Helpers ==============================

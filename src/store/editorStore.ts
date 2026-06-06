@@ -31,6 +31,14 @@ interface EditorStore {
   isProcessing: boolean;
   processingStep: string;
   setProcessing: (isProcessing: boolean, step?: string) => void;
+
+  // 正在重新生成的场景编号
+  regeneratingSceneNumbers: Set<number>;
+  toggleRegenerating: (sceneNumber: number) => void;
+
+  // AI 标记显示开关
+  showAiMarkers: boolean;
+  setShowAiMarkers: (show: boolean) => void;
 }
 
 export const useEditorStore = create<EditorStore>((set, get) => ({
@@ -72,4 +80,17 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   isProcessing: false,
   processingStep: '',
   setProcessing: (isProcessing, step = '') => set({ isProcessing, processingStep: step }),
+
+  regeneratingSceneNumbers: new Set(),
+  toggleRegenerating: (sceneNumber) => {
+    set((s) => {
+      const next = new Set(s.regeneratingSceneNumbers);
+      if (next.has(sceneNumber)) next.delete(sceneNumber);
+      else next.add(sceneNumber);
+      return { regeneratingSceneNumbers: next };
+    });
+  },
+
+  showAiMarkers: true,
+  setShowAiMarkers: (show) => set({ showAiMarkers: show }),
 }));

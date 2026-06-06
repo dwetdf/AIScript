@@ -10,7 +10,7 @@ import { expandBeats } from '../converter';
 import { saveScreenplay } from '../api/endpoints';
 import { validate } from '../schema/validator';
 import { Editor } from '../editor';
-import { exportPdf } from '../renderer/pdf';
+import { exportPdf, exportFullProjectPdf } from '../renderer/pdf';
 import { LoadingStage } from '../components/LoadingStage';
 import {
   DIALOGUE_DENSITY_OPTIONS, DIALOGUE_DENSITY_LABELS,
@@ -201,12 +201,13 @@ export const ScriptPage: React.FC<Props> = ({ section, onSectionChange }) => {
         <WritingStyleCompact config={projectConfig} onChange={updateConfig} />
 
         {/* Export */}
-        <button onClick={exportPdf} style={{
+        <button onClick={exportFullProjectPdf} style={{
           padding: '6px 14px', border: '1px solid #1976d2', borderRadius: 6,
           background: '#1976d2', color: '#fff', cursor: 'pointer', fontSize: 12,
-          fontWeight: 500, display: 'flex', alignItems: 'center', gap: 4, marginRight: 8, marginBottom: 8,
+          fontWeight: 500, display: 'flex', alignItems: 'center', gap: 4,
+          marginRight: 8, marginBottom: 8, whiteSpace: 'nowrap',
         }}>
-          🖨 导出 PDF
+          🖨 导出全部 PDF
         </button>
 
         <span style={{ fontSize: 11, color: '#999', alignSelf: 'center', marginBottom: 8 }}>
