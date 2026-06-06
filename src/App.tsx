@@ -42,24 +42,19 @@ export const App: React.FC = () => {
   const isProcessing = useEditorStore((s) => s.isProcessing);
   const processingStep = useEditorStore((s) => s.processingStep);
 
-  // 活跃项目标题
   const activeProject = projects.find((p) => p.id === activeProjectId);
   const projectTitle = activeProject?.title || '';
+  const analysisForCheck = useAnalysisStore((s) => s.analysis);
+  const planForCheck = usePlanStore((s) => s.plan);
+  const hasData = !!(analysisForCheck || planForCheck || screenplay);
 
-  // 是否有数据（用于导入导出按钮）
-  const hasData = !!(useAnalysisStore((s) => s.analysis) || usePlanStore((s) => s.plan) || screenplay);
-
-  // 面包屑
   const breadcrumb: BreadcrumbItem[] = deriveBreadcrumb(section, projectTitle);
 
-  // 激活第一个项目（启动时）
   useEffect(() => {
-    if (projects.length > 0 && !activeProjectId) {
+    if (projects && projects.length > 0 && !activeProjectId) {
       const first = projects[0];
       setActiveProject(first.id);
-      // 加载该项目的持久化数据
       const a = loadAnalysis(first.id);
-      if (a) setAnalysis(a);
       if (a) setAnalysis(a);
       const p = loadPlan(first.id);
       if (p) setPlan(p);
@@ -68,30 +63,12 @@ export const App: React.FC = () => {
     }
   }, [projects, activeProjectId, setActiveProject, setAnalysis, setPlan, setScreenplay]);
 
-  // 切换项目时加载数据
-  const handleProjectSwitch = useCallback((id: string) => {
-    setActiveProject(id);
-    const a = loadAnalysis(id);
-    if (a) setAnalysis(a); else setAnalysis(null as any);
-    const p = loadPlan(id);
-    if (p) setPlan(p); else setPlan(null as any);
-    const s = loadScreenplay(id);
-    if (s) setScreenplay(s); else setScreenplay(null as any);
-    // 根据项目状态决定默认页面
-    if (s) setSection('script_edit');
-    else if (p) setSection('plan_overview');
-    else if (a) setSection('analysis_overview');
-    else setSection('import');
-  }, [setActiveProject, setAnalysis, setPlan, setScreenplay]);
-
-  // 导出
   const handleExport = useCallback(() => {
     const json = exportProjectBundle(activeProjectId || 'default');
     const title = projectTitle || 'project';
-    downloadFile(json, `${title}-aiscript-bundle.json`, 'application/json');
+    downloadFile(json, title + '-aiscript-bundle.json', 'application/json');
   }, [activeProjectId, projectTitle]);
 
-  // 导入
   const handleImportClick = useCallback(async () => {
     const file = await pickFile('.json');
     if (!file) return;
@@ -113,7 +90,6 @@ export const App: React.FC = () => {
     setImportRawJson('');
   }, []);
 
-  // 页面渲染
   const renderPage = () => {
     if (section === 'import') return <ImportPage onSectionChange={setSection} />;
     if (section.startsWith('analysis_')) return <AnalysisPage section={section} onSectionChange={setSection} />;
@@ -123,11 +99,10 @@ export const App: React.FC = () => {
     return <ImportPage onSectionChange={setSection} />;
   };
 
-  // 状态栏
   const statusLeft = screenplay
-    ? `${screenplay.metadata.title} · ${screenplay.acts.reduce((sum, a) => sum + a.scenes.reduce((ss, sc) => ss + sc.beats.length, 0), 0)} beats`
-    : projects.length > 0 ? `${projects.length} 个项目` : '尚未导入小说';
-  const statusRight = isProcessing ? '⏳ 处理中' : '✅ 就绪';
+    ? screenplay.metadata.title + ' ' + screenplay.acts.reduce((sum, a) => sum + a.scenes.reduce((ss, sc) => ss + sc.beats.length, 0), 0) + ' beats'
+    : projects.length > 0 ? projects.length + ' 个项目' : '尚未导入小说';
+  const statusRight = isProcessing ? '处理中' : '就绪';
 
   return (
     <>
@@ -136,10 +111,7 @@ export const App: React.FC = () => {
         sidebar={
           <ProjectSidebar
             currentSection={section}
-            onNavigate={(s) => {
-              // 如果是项目切换，用 handleProjectSwitch
-              setSection(s);
-            }}
+            onNavigate={setSection}
             onExport={handleExport}
             onImport={handleImportClick}
             hasProjectData={hasData}
@@ -148,6 +120,21 @@ export const App: React.FC = () => {
         processing={isProcessing ? { step: processingStep } : undefined}
         statusBar={{ left: statusLeft, right: statusRight }}
         onNavigate={setSection}
+        headerActions={
+          <>
+            <button onClick={handleImportClick} style={headerBtn} title="导入项目">
+              导入
+            </button>
+            {hasData && (
+              <button onClick={handleExport} style={headerBtn} title="导出项目">
+                导出
+            </button>
+            )}
+            <button onClick={() => setSection('settings')} style={gearBtn} title="设置">
+              {'\u2699\ufe0f'}
+            </button>
+          </>
+        }
       >
         {renderPage()}
       </AppShell>
@@ -162,4 +149,23 @@ export const App: React.FC = () => {
       {screenplay && <ScreenplayPrintView />}
     </>
   );
+};
+
+const headerBtn: React.CSSProperties = {
+  background: 'transparent',
+  border: '1px solid #d0d0d0',
+  borderRadius: 6,
+  fontSize: 12,
+  cursor: 'pointer',
+  padding: '4px 10px',
+  color: '#555',
+};
+
+const gearBtn: React.CSSProperties = {
+  background: 'transparent',
+  border: 'none',
+  fontSize: 20,
+  cursor: 'pointer',
+  padding: '4px 8px',
+  borderRadius: 6,
 };
