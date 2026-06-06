@@ -36,6 +36,7 @@ interface ProjectStore {
   setActiveProject: (id: string) => void;
   addProject: (meta: ProjectMeta) => void;
   updateProjectPhase: (id: string, phase: ProjectMeta['phase']) => void;
+  renameProject: (id: string, newTitle: string) => void;
   removeProject: (id: string) => void;
 }
 
@@ -64,6 +65,24 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     );
     saveProjects(next);
     set({ projects: next });
+  },
+
+  renameProject: (id, newTitle) => {
+    if (!newTitle.trim()) return;
+    const next = get().projects.map((p) =>
+      p.id === id ? { ...p, title: newTitle.trim(), updatedAt: new Date().toISOString() } : p
+    );
+    saveProjects(next);
+    set({ projects: next });
+    // 同步更新 localStorage 中的独立 meta
+    const key = `aiscript_project_meta_${id}`;
+    try {
+      const raw = localStorage.getItem(key);
+      if (raw) {
+        const meta = JSON.parse(raw);
+        localStorage.setItem(key, JSON.stringify({ ...meta, title: newTitle.trim(), updatedAt: new Date().toISOString() }));
+      }
+    } catch { /* ignore */ }
   },
 
   removeProject: (id) => {
