@@ -18,6 +18,7 @@ import {
   useProjectStore, useAnalysisStore, usePlanStore,
   useScriptStore, useConfigStore, useEditorStore,
 } from './store';
+import type { ProjectMeta } from './store/projectStore';
 import {
   loadAnalysis, loadPlan, loadScreenplay,
   exportProjectBundle, importProjectBundle,
@@ -37,9 +38,14 @@ export const App: React.FC = () => {
   const projects = useProjectStore((s) => s.projects);
   const activeProjectId = useProjectStore((s) => s.activeProjectId);
   const setActiveProject = useProjectStore((s) => s.setActiveProject);
+  const addProject = useProjectStore((s) => s.addProject);
+  const updateProjectPhase = useProjectStore((s) => s.updateProjectPhase);
   const setAnalysis = useAnalysisStore((s) => s.setAnalysis);
+  const clearAnalysis = useAnalysisStore((s) => s.clearAnalysis);
   const setPlan = usePlanStore((s) => s.setPlan);
+  const clearPlan = usePlanStore((s) => s.clearPlan);
   const setScreenplay = useScriptStore((s) => s.setScreenplay);
+  const clearScreenplay = useScriptStore((s) => s.clearScreenplay);
   const screenplay = useScriptStore((s) => s.screenplay);
   const analysis = useAnalysisStore((s) => s.analysis);
   const isProcessing = useEditorStore((s) => s.isProcessing);
@@ -53,18 +59,23 @@ export const App: React.FC = () => {
 
   const breadcrumb: BreadcrumbItem[] = deriveBreadcrumb(section, projectTitle);
 
+  // 初始加载：有项目但未选中 → 自动选中第一个
   useEffect(() => {
     if (projects && projects.length > 0 && !activeProjectId) {
-      const first = projects[0];
-      setActiveProject(first.id);
-      const a = loadAnalysis(first.id);
-      if (a) setAnalysis(a);
-      const p = loadPlan(first.id);
-      if (p) setPlan(p);
-      const s = loadScreenplay(first.id);
-      if (s) setScreenplay(s);
+      setActiveProject(projects[0].id);
     }
-  }, [projects, activeProjectId, setActiveProject, setAnalysis, setPlan, setScreenplay]);
+  }, [projects, activeProjectId, setActiveProject]);
+
+  // 项目切换：activeProjectId 变化时从 localStorage 加载对应数据（F100, F101）
+  useEffect(() => {
+    if (!activeProjectId) return;
+    const a = loadAnalysis(activeProjectId);
+    if (a) setAnalysis(a); else clearAnalysis();
+    const p = loadPlan(activeProjectId);
+    if (p) setPlan(p); else clearPlan();
+    const s = loadScreenplay(activeProjectId);
+    if (s) setScreenplay(s); else clearScreenplay();
+  }, [activeProjectId, setAnalysis, clearAnalysis, setPlan, clearPlan, setScreenplay, clearScreenplay]);
 
   const handleExport = useCallback(() => {
     const json = exportProjectBundle(activeProjectId || 'default');
@@ -83,10 +94,64 @@ export const App: React.FC = () => {
 
   const handleImportConfirm = useCallback(() => {
     if (!importPreview?.valid) return;
-    importProjectBundle(importRawJson, importPreview.projectId);
+
+    // 如果导入的 projectId 与已有项目冲突，自动分配新 ID 避免覆盖
+    let targetProjectId: string = importPreview.projectId;
+    if (projects.findIndex((p) => p.id === targetProjectId) >= 0) {
+      targetProjectId = `proj_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    }
+
+    const meta = importProjectBundle(importRawJson, targetProjectId);
+    if (!meta) {
+      setImportPreview(null);
+      setImportRawJson('');
+      return;
+    }
+
+    // 根据导入数据推导项目阶段
+    const derivePhase = (): ProjectMeta['phase'] => {
+      if (importPreview.stages.screenplay) return 'scripted';
+      if (importPreview.stages.plan) return 'planned';
+      if (importPreview.stages.analysis) return 'analyzed';
+      return 'imported';
+    };
+    const phase = derivePhase();
+
+    // 同步到项目列表 store（新项目追加，已有项目更新阶段）
+    const existingIdx = projects.findIndex((p) => p.id === meta.id);
+    if (existingIdx >= 0) {
+      updateProjectPhase(meta.id, phase);
+    } else {
+      addProject({
+        id: meta.id,
+        title: meta.title || '未命名项目',
+        author: meta.author || '未知',
+        createdAt: meta.createdAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        phase,
+      });
+    }
+
+    // 切换到导入的项目
+    setActiveProject(meta.id);
+
+    // 加载导入数据到内存 stores
+    const a = loadAnalysis(meta.id);
+    if (a) setAnalysis(a);
+    const p = loadPlan(meta.id);
+    if (p) setPlan(p);
+    const s = loadScreenplay(meta.id);
+    if (s) setScreenplay(s);
+
+    // 跳转到项目对应的阶段概览页
+    if (phase === 'scripted') setSection('script_edit');
+    else if (phase === 'planned') setSection('plan_overview');
+    else if (phase === 'analyzed') setSection('analysis_overview');
+    else setSection('import');
+
     setImportPreview(null);
     setImportRawJson('');
-  }, [importPreview, importRawJson]);
+  }, [importPreview, importRawJson, projects, addProject, updateProjectPhase, setActiveProject, setAnalysis, setPlan, setScreenplay]);
 
   const handleImportCancel = useCallback(() => {
     setImportPreview(null);

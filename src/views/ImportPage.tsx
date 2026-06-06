@@ -29,8 +29,8 @@ export const ImportPage: React.FC<Props> = ({ onSectionChange }) => {
   const abortRef = useRef<AbortController | null>(null);
 
   const aiConfig = useConfigStore((s) => s.aiConfig);
-  const setAnalysis = useAnalysisStore((s) => s.setAnalysis);
   const addProject = useProjectStore((s) => s.addProject);
+  const setActiveProject = useProjectStore((s) => s.setActiveProject);
 
   const handleCancel = useCallback(() => {
     abortRef.current?.abort();
@@ -65,7 +65,7 @@ export const ImportPage: React.FC<Props> = ({ onSectionChange }) => {
       const vr = validate(novelAnalysis, 'novel-analysis');
       if (!vr.valid) console.warn('NovelAnalysis 校验警告:', vr.errors);
 
-      setAnalysis(novelAnalysis);
+      // 先持久化到 localStorage，再由 App Effect 2 加载到内存 store
       saveAnalysis(projectId, novelAnalysis);
       saveMeta({
         id: projectId,
@@ -84,6 +84,9 @@ export const ImportPage: React.FC<Props> = ({ onSectionChange }) => {
         updatedAt: new Date().toISOString(),
         phase: 'analyzed',
       });
+
+      // 切换到新导入的项目，触发数据加载
+      setActiveProject(projectId);
 
       setIsProcessing(false);
       setLoadingMsg('');
@@ -105,7 +108,7 @@ export const ImportPage: React.FC<Props> = ({ onSectionChange }) => {
       setAnalyzeProgress(null);
       abortRef.current = null;
     }
-  }, [aiConfig, setAnalysis, addProject, onSectionChange]);
+  }, [aiConfig, addProject, setActiveProject, onSectionChange]);
 
   if (isProcessing) {
     return (
