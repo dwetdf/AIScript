@@ -32,7 +32,7 @@ export const ScreenplayPrintView: React.FC = () => {
       {/* ======== 标题页 ======== */}
       <div className="title-page">
         <h1>{metadata.title}</h1>
-        <p className="author">作者：{metadata.title}</p>
+        <p className="author">作者：{metadata.author || '未知'}</p>
         <p className="meta">
           目标媒介：{metadata.target_medium} &nbsp;|&nbsp;
           语言：{metadata.language} &nbsp;|&nbsp;

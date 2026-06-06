@@ -3,9 +3,9 @@
 // ============================================================================
 
 import React from 'react';
-import { useEditorStore } from '@/store';
+import { useEditorStore, useScriptStore } from '@/store';
 import { BeatLine } from './BeatLine';
-import type { Scene } from '@/schema/types';
+import type { Scene, Beat } from '@/schema/types';
 
 interface Props {
   scene: Scene;
@@ -17,6 +17,17 @@ export const SceneCard: React.FC<Props> = ({ scene, viewMode }) => {
   const toggleScene = useEditorStore((s) => s.toggleScene);
   const isExpanded = expandedScenes.has(scene.scene_global_number);
   const setSelectedBeatId = useEditorStore((s) => s.setSelectedBeatId);
+  const setEditingBeatId = useEditorStore((s) => s.setEditingBeatId);
+  const insertBeat = useScriptStore((s) => s.insertBeat);
+
+  const handleAddBeat = () => {
+    // 找到当前场景的 act_number
+    const newBeat = createEmptyBeat(scene.scene_global_number);
+    // 追加到 beat 列表末尾
+    insertBeat(scene.scene_global_number, scene.beats.length, newBeat);
+    // 自动进入编辑模式
+    setEditingBeatId(newBeat.beat_id);
+  };
 
   return (
     <div
@@ -103,11 +114,7 @@ export const SceneCard: React.FC<Props> = ({ scene, viewMode }) => {
                 fontSize: 12,
                 color: '#999',
               }}
-              onClick={() => {
-                // Open insert beat placeholder
-                const newBeat = createEmptyBeat(scene.scene_global_number, 1);
-                useEditorStore.getState().setEditingBeatId(newBeat.beat_id);
-              }}
+              onClick={handleAddBeat}
             >
               + 添加 Beat
             </button>
@@ -118,12 +125,14 @@ export const SceneCard: React.FC<Props> = ({ scene, viewMode }) => {
   );
 };
 
-function createEmptyBeat(sceneGlobal: number, episode: number): import('../../schema/types').Beat {
+function createEmptyBeat(sceneGlobal: number): Beat {
+  // 占位ID，insertBeat 后会由 renumberBeats 自动重新编号
+  const tempId = `_new_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
   return {
-    beat_id: `E${episode}A1S${sceneGlobal}B0`,
+    beat_id: tempId,
     beat_type: 'action',
-    action_text: '[新 beat]',
+    action_text: '[新 beat — 双击编辑]',
     is_ai_generated: true,
     estimated_duration_seconds: 10,
-  } as import('@/schema/types').Beat;
+  } as Beat;
 }
