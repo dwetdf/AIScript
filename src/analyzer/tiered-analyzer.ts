@@ -156,16 +156,18 @@ async function runTier1(
   });
 
   // 并行执行，每完成一章触发进度回调
+  let completedCount = 0;
   const results = await batchChatCompletionJson<Tier1ChapterResult>(
     tasks,
     concurrency,
-    (index, result, error) => {
+    (index, result, _error) => {
+      completedCount++;
       const chapterNum = index + 1;
       const ch = novel.chapters[index];
       const label = result
         ? `第${chapterNum}章 ${ch?.title || ''}`
         : `第${chapterNum}章 (失败)`;
-      options?.onProgress?.(chapterNum, totalChapters, label);
+      options?.onProgress?.(completedCount, totalChapters, label);
     },
     signal
   );
