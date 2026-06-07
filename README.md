@@ -7,7 +7,8 @@
 ![Platform](https://img.shields.io/badge/platform-Windows%2010%2B-blue)
 ![Node](https://img.shields.io/badge/node-%3E%3D18-green)
 
-[![B站演示视频](https://img.shields.io/badge/Bilibili-演示视频-00A1D6?logo=bilibili)](https://www.bilibili.com/video/BV1S8E46GE6z)
+**演示视频**：https://www.bilibili.com/video/BV1S8E46GE6z
+**在线体验**：http://39.107.142.79:5000/
 
 ---
 
@@ -18,6 +19,7 @@
 - [技术栈](#技术栈)
 - [功能清单](#功能清单)
 - [快速开始](#快速开始)
+- [Docker 部署](#docker-部署)
 - [项目结构](#项目结构)
 - [三 Schema 体系](#三-schema-体系)
 - [AI 引擎配置](#ai-引擎配置)
@@ -180,6 +182,35 @@ npm run electron:package
 # 产物在 release/ 目录：
 #   AIScript Setup x.x.x.exe   — 安装版
 #   AIScript x.x.x.exe         — 便携版
+```
+
+### Docker 部署
+
+无需安装 Node.js，使用 Docker 一键部署。
+
+```bash
+# 1. 克隆仓库
+git clone https://github.com/dwetdf/AIScript.git
+cd AIScript
+
+# 2. 构建并启动容器
+docker compose up -d
+
+# 3. 浏览器访问
+# http://localhost:5000
+```
+
+自定义端口：
+
+```bash
+AISCRIPT_PORT=3000 docker compose up -d
+```
+
+手动构建镜像：
+
+```bash
+docker build -t aiscript .
+docker run -d -p 5000:80 --name aiscript aiscript
 ```
 
 ### 配置 AI 引擎
