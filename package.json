@@ -1,6 +1,6 @@
 {
   "name": "aiscript",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "main": "dist-electron/main.js",
   "description": "AI 辅助剧本创作工具 — 将小说文本自动转换为结构化剧本",
