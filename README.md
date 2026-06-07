@@ -7,6 +7,8 @@
 ![Platform](https://img.shields.io/badge/platform-Windows%2010%2B-blue)
 ![Node](https://img.shields.io/badge/node-%3E%3D18-green)
 
+[![B站演示视频](https://img.shields.io/badge/Bilibili-演示视频-00A1D6?logo=bilibili)](https://www.bilibili.com/video/BV1S8E46GE6z)
+
 ---
 
 ## 目录
