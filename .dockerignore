@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Electron (desktop app, not needed for web container)
+electron/
+dist-electron/
+build/
+out/
+release/
+
+# Test data and test files
+test-data/
+test/
+
+# Documentation and design files
+docs/
+novel-analysis.schema.yaml
+adaptation-plan.schema.yaml
+screenplay.schema.yaml
+
+# VCS
+.git/
+.gitignore
+.github/
+
+# IDE and tooling
+.claude/
+.vite/
+.vscode/
+.idea/
+
+# CI/CD
+docker-compose.yml
+Dockerfile
+.dockerignore
