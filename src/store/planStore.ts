@@ -8,6 +8,7 @@ import type { AdaptationPlan, ScenePlan, ActPlan } from '../schema/types';
 import { regenerateScenePlans } from '../planner';
 import { useAnalysisStore } from './analysisStore';
 import { useConfigStore } from './configStore';
+import { useProjectStore } from './projectStore';
 
 interface PlanStore {
   plan: AdaptationPlan | null;
@@ -189,9 +190,7 @@ export const usePlanStore = create<PlanStore>((set, get) => ({
     const aiConfig = useConfigStore.getState().aiConfig;
     if (!aiConfig) throw new Error('未配置 AI 引擎');
 
-    const config = useConfigStore.getState().getProjectConfig('default');
     // Get active project ID from projectStore
-    const { useProjectStore } = require('./projectStore');
     const activeProjectId: string = useProjectStore.getState().activeProjectId || 'default';
     const projectConfig = useConfigStore.getState().getProjectConfig(activeProjectId);
 

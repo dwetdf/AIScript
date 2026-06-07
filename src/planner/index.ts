@@ -152,7 +152,7 @@ async function generateEpisodeAndScenePlan(
       { role: 'user', content: prompt },
     ],
     aiConfig,
-    { temperature: 0.5, maxTokens: 16384, signal }
+    { temperature: 0.5, maxTokens: 32768, signal }
   );
 
   // 为每个 scene_plan 填充 source_context
@@ -318,7 +318,7 @@ export async function regenerateScenePlans(
       { role: 'user', content: prompt },
     ],
     aiConfig,
-    { temperature: 0.5, maxTokens: 16384, signal }
+    { temperature: 0.5, maxTokens: 32768, signal }
   );
 
   return result.scene_plan.map((sp) => ({
